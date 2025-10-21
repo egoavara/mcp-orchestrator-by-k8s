@@ -4,7 +4,7 @@ members = ["crates/common", "crates/backend", "crates/frontend"]
 
 [workspace.package]
 edition = "2021"
-version = "0.1.2"
+version = "0.1.3"
 
 [workspace.dependencies]
 axum = { version = "0.8", features = ["json", "macros"] }
