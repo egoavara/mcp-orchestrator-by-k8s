@@ -112,11 +112,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy binary from builder stage
-ARG TARGET_BINARY=mcp-orchestrator
-COPY --from=builder /app/$TARGET_BINARY /usr/local/bin/$TARGET_BINARY
+ARG TARGET_BINARY=backend
+COPY --from=builder /app/backend /usr/local/bin/mcp-orchestrator
 
 # Set executable permissions
-RUN chmod +x /usr/local/bin/$TARGET_BINARY
+RUN chmod +x /usr/local/bin/mcp-orchestrator
 
 # OCI image labels for metadata
 # See: https://github.com/opencontainers/image-spec/blob/main/annotations.md
@@ -130,4 +130,4 @@ LABEL org.opencontainers.image.title="mcp-orchestrator" \
 # Use tini as PID 1 for proper signal handling (SIGTERM, SIGINT)
 # Tini ensures signals are properly forwarded to the application
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["/usr/local/bin/${TARGET_BINARY}"]
+CMD ["/usr/local/bin/mcp-orchestrator"]
