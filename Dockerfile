@@ -25,7 +25,23 @@ COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 # ============================================================================
-# Stage 2: Builder - Cross-compilation setup and build
+# Stage 2: Frontend Builder - Build frontend assets
+# Purpose: Build frontend dist directory before backend compilation
+# ============================================================================
+FROM --platform=$BUILDPLATFORM rust:1.86-bookworm AS frontend-builder
+
+WORKDIR /app
+
+COPY Cargo.toml Cargo.lock ./
+COPY crates/frontend ./crates/frontend
+COPY crates/common ./crates/common
+
+RUN cd crates/frontend && \
+    cargo build --release && \
+    mkdir -p dist
+
+# ============================================================================
+# Stage 3: Builder - Cross-compilation setup and build
 # Purpose: Sets up cross-compilation environment and builds the Rust binary
 #          for the target platform (amd64, arm64, or armv7)
 # ============================================================================
