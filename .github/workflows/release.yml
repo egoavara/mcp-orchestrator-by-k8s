@@ -1,0 +1,238 @@
+name: Release Docker Image and Binary
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'The release tag to build and publish (e.g., v1.0.0)'
+        required: true
+      component:
+        description: 'Component to build'
+        required: false
+        default: '<all>'
+        type: choice
+        options:
+          - '<all>'
+          - docker
+          - binary
+          - binary.windows-amd64
+          - binary.linux-musl-amd64
+          - binary.linux-musl-arm64
+          - binary.linux-gnu-amd64
+          - binary.linux-gnu-arm64
+          - package
+          - package.helm
+          - package.pulumi
+          - package.terraform
+          - package.kubernetes
+
+env:
+  ASSET_NAME: mcp-orchestrator
+  BINARY_PATH: backend
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name || github.event.release.tag_name }}
+
+jobs:
+  prepare-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      binary-matrix: ${{ steps.set-matrix.outputs.binary-matrix }}
+    steps:
+      - id: set-matrix
+        run: |
+          EVENT="${{ github.event_name }}"
+          COMPONENT="${{ github.event.inputs.component }}"
+          
+          if [[ "$EVENT" == "push" ]]; then
+            BINARY_MATRIX='["binary.linux-gnu-amd64"]'
+          elif [[ "$EVENT" == "release" ]]; then
+            BINARY_MATRIX='["binary.windows-amd64","binary.linux-musl-amd64","binary.linux-musl-arm64","binary.linux-gnu-amd64","binary.linux-gnu-arm64"]'
+          elif [[ "$COMPONENT" == "<all>" || "$COMPONENT" == "binary" ]]; then
+            BINARY_MATRIX='["binary.windows-amd64","binary.linux-musl-amd64","binary.linux-musl-arm64","binary.linux-gnu-amd64","binary.linux-gnu-arm64"]'
+          elif [[ "$COMPONENT" == binary.* ]]; then
+            BINARY_MATRIX='["'$COMPONENT'"]'
+          else
+            BINARY_MATRIX='[]'
+          fi
+          
+          echo "binary-matrix=$BINARY_MATRIX" >> $GITHUB_OUTPUT
+          echo "Selected binary components: $BINARY_MATRIX"
+        shell: bash
+
+  package-docker:
+    name: Package Docker (linux/amd64, linux/arm64)
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.component == '<all>' || github.event.inputs.component == 'docker')) || github.event_name == 'release'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+            type=raw,value=${{ env.RELEASE_TAG }}
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          cache-from: type=gha,scope=docker-cache
+          cache-to: type=gha,mode=max,scope=docker-cache
+
+      - name: Push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          cache-from: type=gha,scope=docker-cache
+          cache-to: type=gha,mode=max,scope=docker-cache
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  build-binaries:
+    needs: prepare-matrix
+    name: Build Binary (${{ matrix.component_name }})
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    if: needs.prepare-matrix.outputs.binary-matrix != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        component_name: ${{ fromJSON(needs.prepare-matrix.outputs.binary-matrix) }}
+        include:
+          - component_name: binary.windows-amd64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            asset_name_suffix: windows-amd64.exe
+            asset_content_type: application/vnd.microsoft.portable-executable
+            rustflags: ""
+            needs_linker_install: false
+          - component_name: binary.linux-musl-amd64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            asset_name_suffix: linux-musl-amd64
+            asset_content_type: application/octet-stream
+            needs_linker_install: true
+            linker: musl-gcc
+            linker_install_cmd: sudo apt-get update && sudo apt-get install -y musl-tools musl-dev
+          - component_name: binary.linux-musl-arm64
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            asset_name_suffix: linux-musl-arm64
+            asset_content_type: application/octet-stream
+            needs_linker_install: true
+            zig_install: true
+            linker_install_cmd: cargo install --locked cargo-zigbuild
+          - component_name: binary.linux-gnu-amd64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            asset_name_suffix: linux-gnu-amd64
+            asset_content_type: application/octet-stream
+            needs_linker_install: false
+          - component_name: binary.linux-gnu-arm64
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            asset_name_suffix: linux-gnu-arm64
+            asset_content_type: application/octet-stream
+            needs_linker_install: true
+            linker: aarch64-linux-gnu-gcc
+            linker_install_cmd: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Set up Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: "1.86.0"
+          cache-key: "rust-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}"
+          target: ${{ matrix.target }}
+          rustflags: ${{ matrix.rustflags }}
+
+      - name: Install zig if needed
+        if: matrix.zig_install
+        uses: mlugg/setup-zig@v2
+
+      - name: Install cross-linker if needed
+        if: matrix.needs_linker_install
+        run: ${{ matrix.linker_install_cmd }}
+        shell: bash
+
+      - name: Build (Windows MSVC)
+        if: matrix.os == 'windows-latest'
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Build (Linux amd64 MUSL)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: cargo build --release --target ${{ matrix.target }}
+        env:
+          CC_x86_64_unknown_linux_musl: ${{ matrix.linker }}
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: ${{ matrix.linker }}
+          CFLAGS_x86_64_unknown_linux_musl: "-std=c11 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0"
+
+      - name: Build (Linux arm64 MUSL)
+        if: matrix.target == 'aarch64-unknown-linux-musl'
+        run: cargo zigbuild --release --target ${{ matrix.target }}
+        env:
+          CFLAGS_aarch64_unknown_linux_musl: "-std=c11 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0"
+
+      - name: Build (Linux amd64 GNU)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Build (Linux arm64 GNU)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: cargo build --release --target ${{ matrix.target }}
+        env:
+          CC_aarch64_unknown_linux_gnu: ${{ matrix.linker }}
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: ${{ matrix.linker }}
+
+      - name: Upload Release Asset (using gh cli)
+        if: github.event_name != 'push' && (startsWith(github.event.release.tag_name, 'v') || startsWith(github.event.inputs.tag_name, 'v'))
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ASSET_PATH="./target/${{ matrix.target }}/release/${{ env.BINARY_PATH }}${{ endsWith(matrix.asset_name_suffix, '.exe') && '.exe' || '' }}"
+          ASSET_NAME="${{ env.ASSET_NAME }}-${{ env.RELEASE_TAG }}-${{ matrix.asset_name_suffix }}"
+          echo "Copying $ASSET_PATH to $ASSET_NAME for upload"
+          cp "$ASSET_PATH" "$ASSET_NAME"
+          echo "Uploading $ASSET_NAME to tag ${{ env.RELEASE_TAG }}"
+          gh release upload "${{ env.RELEASE_TAG }}" "$ASSET_NAME" --clobber
+        shell: bash
