@@ -40,4 +40,3 @@ figment = { workspace = true }
 clap = { workspace = true }
 
 proto = { path = "../proto" }
-common = { path = "../common" }
