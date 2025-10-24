@@ -99,6 +99,7 @@ pub struct KubernetesConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct AppConfig {
     #[serde(default)]
     pub server: ServerConfig,
@@ -142,14 +143,6 @@ impl Default for KubernetesConfig {
     }
 }
 
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            server: ServerConfig::default(),
-            kubernetes: KubernetesConfig::default(),
-        }
-    }
-}
 
 impl AppConfig {
     pub fn load() -> Result<Self, figment::Error> {

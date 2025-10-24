@@ -3,7 +3,6 @@ use proto::mcp::orchestrator::v1::mcp_orchestrator_service_server::McpOrchestrat
 use tower_http::cors::{Any, CorsLayer};
 use tower::ServiceBuilder;
 use tracing::info;
-use axum::Router;
 
 mod config;
 mod error;

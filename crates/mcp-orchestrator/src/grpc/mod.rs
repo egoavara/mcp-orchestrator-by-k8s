@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use proto::mcp::orchestrator::v1::{
     mcp_orchestrator_service_server::McpOrchestratorService, *,
@@ -302,8 +302,7 @@ impl McpOrchestratorService for GrpcService {
         use crate::storage::secret_store::SecretStore;
         
         let req = request.into_inner();
-        let default_ns = req.namespace.as_ref()
-            .map(|s| s.as_str())
+        let default_ns = req.namespace.as_deref()
             .filter(|s| !s.is_empty())
             .unwrap_or("default");
         
