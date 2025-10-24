@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package mcp.orchestrator.v1;
+
+import "common.proto";
+
+message CreateResourceLimitRequest {
+  string name = 1;
+  string display_name = 2;
+  string description = 3;
+  ResourceLimit limits = 4;
+  map<string, string> labels = 5;
+}
+
+message GetResourceLimitRequest {
+  string name = 1;
+}
+
+message ListResourceLimitsRequest {
+  map<string, string> label_selector = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListResourceLimitsResponse {
+  repeated ResourceLimitResponse resource_limits = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message DeleteResourceLimitRequest {
+  string name = 1;
+  bool force = 2;
+}
+
+message DeleteResourceLimitResponse {
+  bool success = 1;
+  string message = 2;
+  int32 referenced_templates_count = 3;
+}
+
+message ResourceLimitResponse {
+  string name = 1;
+  string display_name = 2;
+  string description = 3;
+  ResourceLimit limits = 4;
+  map<string, string> labels = 5;
+  int64 created_at = 6;
+  int32 usage_count = 7;
+}

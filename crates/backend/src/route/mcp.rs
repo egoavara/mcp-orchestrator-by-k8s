@@ -1,9 +1,9 @@
+use crate::{passmcp::PassthroughMcpService, state::AppState};
 use axum::{
     body::Body,
     extract::{Path, Request, State},
     response::{Html, IntoResponse},
 };
-use common::{passmcp::PassthroughMcpService, state::AppState};
 use rmcp::transport::StreamableHttpService;
 use tokio::runtime::Handle;
 

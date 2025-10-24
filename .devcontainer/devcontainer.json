@@ -11,7 +11,9 @@
 		"ghcr.io/devcontainer-community/devcontainer-features/opencode.ai:1": {},
 		"ghcr.io/jsburckhardt/devcontainer-features/uv:1": {},
 		"ghcr.io/devcontainers/features/github-cli:1": {},
-		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+		"ghcr.io/devcontainers-extra/features/protoc:1": {},
+		"ghcr.io/devcontainers/features/node:1": {}
 	},
 	"runArgs": [
 		"--env-file",
@@ -74,6 +76,11 @@
 			"source": "gh-config-${devcontainerId}",
 			"target": "/home/vscode/.config",
 			"type": "volume"
+		},
+		{
+			"source": "${localEnv:HOME}/.kube",
+			"target": "/home/vscode/.kube",
+			"type": "bind"
 		}
 	]
 	// Features to add to the dev container. More info: https://containers.dev/features.

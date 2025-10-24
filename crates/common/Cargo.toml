@@ -11,7 +11,6 @@ chrono = { workspace = true }
 axum = { workspace = true }
 kube = { workspace = true }
 k8s-openapi = { workspace = true }
-
 tokio = { workspace = true }
 
 tracing = { workspace = true }

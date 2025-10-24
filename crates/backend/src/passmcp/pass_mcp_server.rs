@@ -12,7 +12,7 @@ use rmcp::{
 use tokio::io::{AsyncRead, AsyncWrite};
 use tracing::info;
 
-use crate::{consts::MCP_NAMESPACE, failure::Failure};
+use common::{consts::MCP_NAMESPACE, failure::Failure};
 
 pub struct PassthroughMcpService {
     pub session_id: String,
@@ -43,7 +43,7 @@ impl rmcp::Service<rmcp::RoleServer> for PassthroughMcpService {
     async fn handle_notification(
         &self,
         notification: <rmcp::RoleServer as rmcp::service::ServiceRole>::PeerNot,
-        context: rmcp::service::NotificationContext<rmcp::RoleServer>,
+        _context: rmcp::service::NotificationContext<rmcp::RoleServer>,
     ) -> Result<(), rmcp::ErrorData> {
         self.mcp_client
             .send_notification(notification)
@@ -92,6 +92,7 @@ impl PassthroughMcpService {
                 session_id, e
             ))
         })?;
+
         Ok(Self {
             session_id,
             kube_client,

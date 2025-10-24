@@ -1,0 +1,80 @@
+{
+    // IntelliSense를 사용하여 가능한 특성에 대해 알아보세요.
+    // 기존 특성에 대한 설명을 보려면 가리킵니다.
+    // 자세한 내용을 보려면 https://go.microsoft.com/fwlink/?linkid=830387을(를) 방문하세요.
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug unit tests in library 'common'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=common"
+                ]
+            }
+        },
+        {
+            "name": "Debug executable 'backend'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=backend",
+                    "--package=backend"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in executable 'backend'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--bin=backend",
+                    "--package=backend"
+                ]
+            }
+        },
+        {
+            "name": "Debug unit tests in library 'frontend'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=frontend"
+                ]
+            }
+        },
+        {
+            "name": "Debug executable 'frontend'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=frontend",
+                    "--package=frontend"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in executable 'frontend'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--bin=frontend",
+                    "--package=frontend"
+                ]
+            }
+        }
+    ]
+}

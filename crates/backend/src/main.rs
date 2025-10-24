@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use common::state::AppState;
 use k8s_openapi::api::core::v1::Namespace;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use rmcp::transport::{
@@ -11,10 +10,14 @@ use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tracing::{info, warn};
 
+use crate::{passmcp::SampleSessionManager, state::AppState};
+
 pub mod assets;
 pub mod kube;
+pub mod passmcp;
 pub mod route;
 pub mod service;
+pub mod state;
 
 async fn ensure_namespace(client: ::kube::Client, namespace: &str) -> anyhow::Result<()> {
     use ::kube::api::PostParams;
@@ -79,7 +82,7 @@ async fn main() -> anyhow::Result<()> {
     let namespace = std::env::var("KUBE_NAMESPACE").unwrap_or_else(|_| "mcp-servers".to_string());
     ensure_namespace(kube_client.clone(), &namespace).await?;
 
-    let local_session_manager = Arc::new(LocalSessionManager::default());
+    let local_session_manager = Arc::new(SampleSessionManager::default());
     let state = AppState {
         kube_client,
         local_session_manager: local_session_manager.clone(),

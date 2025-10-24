@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package mcp.orchestrator.v1;
+
+import "mcp_template.proto";
+import "mcp_server.proto";
+import "namespace.proto";
+import "secret.proto";
+import "resource_limit.proto";
+
+service McpOrchestratorService {
+  rpc CreateMcpTemplate(CreateMcpTemplateRequest) returns (McpTemplateResponse);
+  rpc GetMcpTemplate(GetMcpTemplateRequest) returns (McpTemplateResponse);
+  rpc ListMcpTemplates(ListMcpTemplatesRequest) returns (ListMcpTemplatesResponse);
+  rpc DeleteMcpTemplate(DeleteMcpTemplateRequest) returns (DeleteMcpTemplateResponse);
+  
+  rpc GetMcpServer(GetMcpServerRequest) returns (McpServerResponse);
+  rpc ListMcpServers(ListMcpServersRequest) returns (ListMcpServersResponse);
+  
+  rpc CreateNamespace(CreateNamespaceRequest) returns (NamespaceResponse);
+  rpc GetNamespace(GetNamespaceRequest) returns (NamespaceResponse);
+  rpc ListNamespaces(ListNamespacesRequest) returns (ListNamespacesResponse);
+  rpc DeleteNamespace(DeleteNamespaceRequest) returns (DeleteNamespaceResponse);
+  
+  rpc CreateSecret(CreateSecretRequest) returns (SecretResponse);
+  rpc GetSecret(GetSecretRequest) returns (SecretResponse);
+  rpc ListSecrets(ListSecretsRequest) returns (ListSecretsResponse);
+  rpc UpdateSecret(UpdateSecretRequest) returns (SecretResponse);
+  rpc DeleteSecret(DeleteSecretRequest) returns (DeleteSecretResponse);
+  
+  rpc CreateResourceLimit(CreateResourceLimitRequest) returns (ResourceLimitResponse);
+  rpc GetResourceLimit(GetResourceLimitRequest) returns (ResourceLimitResponse);
+  rpc ListResourceLimits(ListResourceLimitsRequest) returns (ListResourceLimitsResponse);
+  rpc DeleteResourceLimit(DeleteResourceLimitRequest) returns (DeleteResourceLimitResponse);
+}

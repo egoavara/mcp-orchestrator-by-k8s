@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
 use kube::Client;
-use rmcp::transport::{streamable_http_server::session::local::LocalSessionManager, StreamableHttpService};
-
-use crate::passmcp::PassthroughMcpService;
+use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 
 #[derive(Clone)]
 pub struct AppState {

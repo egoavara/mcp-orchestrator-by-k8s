@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package mcp.orchestrator.v1;
+
+import "common.proto";
+
+message GetMcpServerRequest {
+  string id = 1;
+  optional string namespace = 2;
+}
+
+message ListMcpServersRequest {
+  optional string namespace = 1;
+  optional string template_id = 2;
+  map<string, string> label_selector = 3;
+  int32 page_size = 4;
+  string page_token = 5;
+}
+
+message ListMcpServersResponse {
+  repeated McpServerResponse servers = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+enum McpServerStatus {
+  MCP_SERVER_STATUS_UNSPECIFIED = 0;
+  MCP_SERVER_STATUS_PENDING = 1;
+  MCP_SERVER_STATUS_RUNNING = 2;
+  MCP_SERVER_STATUS_FAILED = 3;
+  MCP_SERVER_STATUS_TERMINATED = 4;
+}
+
+message ResolvedVolume {
+  string name = 1;
+  string size = 2;
+  string mount_path = 3;
+  optional string storage_class = 4;
+}
+
+message McpServerResponse {
+  string id = 1;
+  string name = 2;
+  string namespace = 3;
+  string template_id = 4;
+  McpServerStatus status = 5;
+  string image = 6;
+  repeated string command = 7;
+  repeated string args = 8;
+  repeated EnvVar env_vars = 9;
+  string resource_limit_name = 10;
+  repeated ResolvedVolume volumes = 11;
+  map<string, string> labels = 12;
+  int64 created_at = 13;
+  optional int64 started_at = 14;
+  optional string pod_name = 15;
+  optional string pod_ip = 16;
+  optional string node_name = 17;
+}
