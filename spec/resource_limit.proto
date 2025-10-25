@@ -17,14 +17,14 @@ message GetResourceLimitRequest {
 
 message ListResourceLimitsRequest {
   LabelQuery label = 1;
-  int32 page_size = 2;
-  string page_token = 3;
+  optional int32 first = 2;
+  optional string after = 3;
 }
 
 message ListResourceLimitsResponse {
-  repeated ResourceLimitResponse resource_limits = 1;
-  string next_page_token = 2;
-  int32 total_count = 3;
+  repeated ResourceLimitResponse data = 1;
+  optional string endCursor = 2;
+  bool hasNextPage = 3;
 }
 
 message DeleteResourceLimitRequest {
@@ -35,7 +35,6 @@ message DeleteResourceLimitRequest {
 message DeleteResourceLimitResponse {
   bool success = 1;
   string message = 2;
-  int32 referenced_templates_count = 3;
 }
 
 message ResourceLimitResponse {

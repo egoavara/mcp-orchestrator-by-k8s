@@ -47,7 +47,7 @@ message McpServerResponse {
   string image = 6;
   repeated string command = 7;
   repeated string args = 8;
-  repeated EnvVar env_vars = 9;
+  map<string, string> env_vars = 9;
   string resource_limit_name = 10;
   repeated ResolvedVolume volumes = 11;
   map<string, string> labels = 12;

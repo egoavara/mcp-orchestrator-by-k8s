@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
 
-
-use crate::{error::AppError, storage::resource_uname::resource_relpath};
+use crate::{
+    error::AppError,
+    storage::{label_query::LabelQuery, resource_uname::resource_relpath},
+};
 
 pub const LABEL_PREFIX: &str = "mcp-orchestrator.egoavara.net";
 pub const LABEL_CUSTOM_PREFIX: &str = "custom.mcp-orchestrator.egoavara.net";
@@ -26,13 +28,15 @@ lazy_static::lazy_static! {
 pub fn label_dependency(r#typeof: &str, name: &str) -> impl Iterator<Item = (String, String)> {
     std::iter::once(label_dependency_tuple(r#typeof, name))
 }
-pub fn label_dependency_tuple(r#typeof: &str, name: &str) -> (String, String) {
-    (
-        resource_relpath(r#typeof, name),
-        "1".to_string(),
-    )
+
+pub fn label_dependency_query(r#typeof: &str, name: &str) -> LabelQuery {
+    let (key, value) = label_dependency_tuple(r#typeof, name);
+    LabelQuery::Equal { key, value }
 }
 
+pub fn label_dependency_tuple(r#typeof: &str, name: &str) -> (String, String) {
+    (resource_relpath(r#typeof, name), "1".to_string())
+}
 
 pub fn label_fullpath(key: &str) -> Result<String, AppError> {
     if SIMPLE_LABEL_REGEX.is_match(key) {

@@ -11,32 +11,34 @@ message CreateMcpTemplateRequest {
   string image = 4;
   repeated string command = 5;
   repeated string args = 6;
-  repeated EnvVar env_vars = 7;
-  repeated SecretEnvVar secret_env_vars = 8;
+  map<string, string> envs = 7;
+  repeated string secret_envs = 8;
   string resource_limit_name = 9;
   repeated VolumeMount volume_mounts = 10;
-  
+  repeated SecretMount secret_mounts = 11;
 }
 
 message GetMcpTemplateRequest {
-  string id = 1;
+  optional string namespace = 1;
+  string name = 2;
 }
 
 message ListMcpTemplatesRequest {
   optional string namespace = 1;
   LabelQuery label = 2;
-  int32 page_size = 3;
-  string page_token = 4;
+  optional int32 first = 3;
+  optional string after = 4;
 }
 
 message ListMcpTemplatesResponse {
-  repeated McpTemplateResponse templates = 1;
-  string next_page_token = 2;
-  int32 total_count = 3;
+  repeated McpTemplateResponse data = 1;
+  optional string endCursor = 2;
+  bool hasNextPage = 3;
 }
 
 message DeleteMcpTemplateRequest {
-  string id = 1;
+  optional string namespace = 1;
+  string name = 2;
 }
 
 message DeleteMcpTemplateResponse {
@@ -51,10 +53,11 @@ message McpTemplateResponse {
   string image = 4;
   repeated string command = 5;
   repeated string args = 6;
-  repeated EnvVar env_vars = 7;
-  repeated SecretEnvVar secret_env_vars = 8;
+  map<string, string> envs = 7;
+  repeated string secret_envs = 8;
   string resource_limit_name = 9;
   repeated VolumeMount volume_mounts = 10;
-  string created_at = 11;
-  optional string deleted_at = 12;
+  repeated SecretMount secret_mounts = 11;
+  string created_at = 12;
+  optional string deleted_at = 13;
 }

@@ -5,8 +5,12 @@ use super::label_query::LabelQuery;
 use super::labels::setup_labels;
 use crate::storage::annotations::{ANNOTATION_DESCRIPTION, annotation_description};
 use crate::storage::label_query::build_label_query;
-use crate::storage::labels::label_dependency;
-use crate::storage::resource_type::{RESOURCE_TYPE_NAMESPACE, RESOURCE_TYPE_RESOURCE_LIMIT};
+use crate::storage::labels::{label_dependency, label_dependency_query, label_dependency_tuple};
+use crate::storage::resource_type::{
+    RESOURCE_TYPE_MCP_TEMPLATE, RESOURCE_TYPE_NAMESPACE, RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT,
+    RESOURCE_TYPE_RESOURCE_LIMIT,
+};
+use crate::storage::util_list::ListOption;
 use crate::storage::util_name::{decode_k8sname, encode_k8sname};
 use crate::storage::utils::{add_safe_finalizer, data_elem, parse_data_elem};
 use crate::{
@@ -26,7 +30,6 @@ use kube::{
 };
 use proto::mcp::orchestrator::v1;
 
-const PREFIX: &str = "rl";
 const FINALIZER_NAME: &str = "mcp-orchestrator.egoavara.net/resource-limit";
 const DATA_CPU: &str = "cpu";
 const DATA_CPU_LIMIT: &str = "cpu_limit";
@@ -56,13 +59,15 @@ impl ResourceLimitData {
             ephemeral_storage: parse_data_elem(&cm.data, DATA_EPHEMERAL_STORAGE)?,
         };
         Ok(Self {
-            name: decode_k8sname(PREFIX, &cm.name_any()).ok_or_else(|| {
-                AppError::Internal(format!(
-                    "Failed to decode configmap name: {}, it must start with {}-",
-                    cm.name_any(),
-                    PREFIX
-                ))
-            })?,
+            name: decode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, &cm.name_any()).ok_or_else(
+                || {
+                    AppError::Internal(format!(
+                        "Failed to decode configmap name: {}, it must start with {}-",
+                        cm.name_any(),
+                        RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT
+                    ))
+                },
+            )?,
             description: cm
                 .annotations()
                 .get(&ANNOTATION_DESCRIPTION.to_string())
@@ -115,7 +120,7 @@ impl ResourceLimitStore {
     ) -> Result<ResourceLimitData, AppError> {
         let configmap = ConfigMap {
             metadata: ObjectMeta {
-                name: Some(encode_k8sname(PREFIX, name)),
+                name: Some(encode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, name)),
                 labels: Some(
                     setup_labels(RESOURCE_TYPE_RESOURCE_LIMIT, labels)
                         .chain(label_dependency(RESOURCE_TYPE_NAMESPACE, &self.namespace))
@@ -152,7 +157,7 @@ impl ResourceLimitStore {
 
     pub async fn get(&self, name: &str) -> Result<Option<ResourceLimitData>, AppError> {
         self.api()
-            .get(&encode_k8sname(PREFIX, name))
+            .get(&encode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, name))
             .await
             .map(|x| {
                 if is_managed_label(RESOURCE_TYPE_RESOURCE_LIMIT, x.labels()) {
@@ -165,14 +170,23 @@ impl ResourceLimitStore {
             .and_then(ResourceLimitData::try_from_option_config_map)
     }
 
-    pub async fn list(&self, queries: &[LabelQuery]) -> Result<Vec<ResourceLimitData>, AppError> {
-        let selector = build_label_query(RESOURCE_TYPE_RESOURCE_LIMIT, queries)?;
-        let lp = ListParams::default().labels(&selector);
+    pub async fn list(
+        &self,
+        queries: &[LabelQuery],
+        option: ListOption,
+    ) -> Result<(Vec<ResourceLimitData>, Option<String>, bool), AppError> {
+        let label_query = build_label_query(RESOURCE_TYPE_RESOURCE_LIMIT, queries)?;
+        let lp = option.to_list_param(label_query);
         let list = self.api().list(&lp).await.map_err(AppError::from)?;
-        list.items
-            .into_iter()
-            .map(ResourceLimitData::try_from_config_map)
-            .collect::<Result<Vec<_>, _>>()
+        Ok((
+            list.items
+                .into_iter()
+                .take(option.get_limit())
+                .map(ResourceLimitData::try_from_config_map)
+                .collect::<Result<Vec<_>, _>>()?,
+            list.metadata.continue_.clone(),
+            option.has_more(&list.metadata),
+        ))
     }
 
     pub async fn delete(
@@ -183,12 +197,21 @@ impl ResourceLimitStore {
         let api = self.api();
         let option = option.unwrap_or_default();
 
-        if !option.force.unwrap_or_default() {
-            add_safe_finalizer(self.api(), &encode_k8sname(PREFIX, name), FINALIZER_NAME, 5).await?;
+        if !option.remove_finalizer.unwrap_or_default() {
+            add_safe_finalizer(
+                self.api(),
+                &encode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, name),
+                FINALIZER_NAME,
+                5,
+            )
+            .await?;
         }
 
         let mut result = api
-            .delete(&encode_k8sname(PREFIX, name), &DeleteParams::default())
+            .delete(
+                &encode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, name),
+                &DeleteParams::default(),
+            )
             .await
             .map_err(AppError::from)?
             .map_left(|_x| DeleteResult::Deleting)
@@ -213,5 +236,28 @@ impl ResourceLimitStore {
         }
 
         Ok(result)
+    }
+
+    pub async fn is_deletable(&self, name: &str) -> Result<bool, AppError> {
+        let api = Api::<ConfigMap>::namespaced(self.client.clone(), &self.namespace);
+        let Some(_config_map) = api.get_opt(name).await? else {
+            return Ok(false);
+        };
+
+        let has_dep_mcp_templates = self.has_dep_mcp_templates(name).await?;
+        Ok(!has_dep_mcp_templates)
+    }
+
+    async fn has_dep_mcp_templates(&self, name: &str) -> Result<bool, AppError> {
+        let mcp_template_store = Api::<ConfigMap>::all(self.client.clone());
+
+        let label = build_label_query(
+            RESOURCE_TYPE_MCP_TEMPLATE,
+            &[label_dependency_query(RESOURCE_TYPE_RESOURCE_LIMIT, name)],
+        )?
+        .to_string();
+        let lp = ListParams::default().labels(&label).limit(1);
+        let list = mcp_template_store.list(&lp).await.map_err(AppError::from)?;
+        Ok(!list.items.is_empty())
     }
 }

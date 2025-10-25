@@ -7,6 +7,7 @@ use crate::grpc::utils::convert_label_query;
 use crate::state::AppState;
 use crate::storage::ResourceLimitData;
 use crate::storage::util_delete::{DeleteOption, DeleteResult};
+use crate::storage::util_list::ListOption;
 
 fn from(rl: ResourceLimitData) -> ResourceLimitResponse {
     ResourceLimitResponse {
@@ -23,7 +24,7 @@ pub async fn create_resource_limit(
     state: &AppState,
     request: Request<CreateResourceLimitRequest>,
 ) -> Result<Response<ResourceLimitResponse>, Status> {
-    let store = state.kube_store.resource_limits(None);
+    let store = state.kube_store.resource_limits();
     let req = request.into_inner();
 
     let limits = req
@@ -42,7 +43,7 @@ pub async fn get_resource_limit(
     state: &AppState,
     request: Request<GetResourceLimitRequest>,
 ) -> Result<Response<ResourceLimitResponse>, Status> {
-    let store = state.kube_store.resource_limits(None);
+    let store = state.kube_store.resource_limits();
     let req = request.into_inner();
 
     let rl = store
@@ -58,25 +59,28 @@ pub async fn list_resource_limits(
     state: &AppState,
     request: Request<ListResourceLimitsRequest>,
 ) -> Result<Response<ListResourceLimitsResponse>, Status> {
-    let store = state.kube_store.resource_limits(None);
+    let store = state.kube_store.resource_limits();
     let req = request.into_inner();
 
     let label = convert_label_query(req.label.unwrap_or_default());
 
-    let responses = store
-        .list(label.as_ref())
+    let (secrets, continue_token, has_more) = store
+        .list(
+            label.as_ref(),
+            ListOption {
+                after: req.after,
+                first: req.first,
+            },
+        )
         .await
-        .map_err(|e| Status::internal(format!("Failed to list resource limits: {}", e)))?
-        .into_iter()
-        .map(from)
-        .collect::<Vec<_>>();
+        .map_err(|e| Status::internal(format!("Failed to list resource limits: {}", e)))?;
 
-    let total = responses.len() as i32;
+    let data = secrets.into_iter().map(from).collect::<Vec<_>>();
 
     Ok(Response::new(ListResourceLimitsResponse {
-        resource_limits: responses,
-        next_page_token: String::new(),
-        total_count: total,
+        data,
+        end_cursor: continue_token,
+        has_next_page: has_more,
     }))
 }
 
@@ -84,7 +88,7 @@ pub async fn delete_resource_limit(
     state: &AppState,
     request: Request<DeleteResourceLimitRequest>,
 ) -> Result<Response<DeleteResourceLimitResponse>, Status> {
-    let store = state.kube_store.resource_limits(None);
+    let store = state.kube_store.resource_limits();
     let req = request.into_inner();
 
     let result = store
@@ -109,6 +113,5 @@ pub async fn delete_resource_limit(
     Ok(Response::new(DeleteResourceLimitResponse {
         success,
         message,
-        referenced_templates_count: 0,
     }))
 }

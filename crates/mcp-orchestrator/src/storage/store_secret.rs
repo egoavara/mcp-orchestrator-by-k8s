@@ -1,7 +1,7 @@
 use std::vec;
 
 use chrono::{DateTime, Duration, Utc};
-use k8s_openapi::api::core::v1::Secret;
+use k8s_openapi::api::core::v1::{ConfigMap, Secret};
 use kube::{
     Api, Client, Resource, ResourceExt,
     api::{DeleteParams, ListParams, ObjectMeta, PostParams},
@@ -12,17 +12,20 @@ use super::labels::setup_labels;
 use crate::{
     error::AppError,
     storage::{
-        labels::{is_managed_label, label_dependency},
-        resource_type::{RESOURCE_TYPE_NAMESPACE, RESOURCE_TYPE_SECRET},
+        labels::{is_managed_label, label_dependency, label_dependency_query},
+        resource_type::{
+            RESOURCE_TYPE_MCP_TEMPLATE, RESOURCE_TYPE_NAMESPACE, RESOURCE_TYPE_PREFIX_SECRET,
+            RESOURCE_TYPE_SECRET,
+        },
         resource_uname::resource_fullpath,
         util_delete::{DeleteOption, DeleteResult},
+        util_list::ListOption,
         util_name::{decode_k8sname, encode_k8sname},
         utils::{add_safe_finalizer, interval_timeout},
     },
 };
 
 const FINALIZER_NAME: &str = "mcp-orchestrator.egoavara.net/secret";
-const PREFIX: &str = "sc";
 
 pub struct SecretData {
     pub raw: Secret,
@@ -37,11 +40,11 @@ impl SecretData {
     pub fn try_from_secret(secret: Secret) -> Result<Self, AppError> {
         Ok(Self {
             namespace: secret.namespace().unwrap_or_else(|| "default".to_string()),
-            name: decode_k8sname(PREFIX, &secret.name_any()).ok_or_else(|| {
+            name: decode_k8sname(RESOURCE_TYPE_PREFIX_SECRET, &secret.name_any()).ok_or_else(|| {
                 AppError::Internal(format!(
                     "Failed to decode secret name: {}, it must start with {}-",
                     secret.name_any(),
-                    PREFIX
+                    RESOURCE_TYPE_PREFIX_SECRET
                 ))
             })?,
             labels: secret
@@ -100,7 +103,7 @@ impl SecretStore {
     ) -> Result<SecretData, AppError> {
         let secret = Secret {
             metadata: ObjectMeta {
-                name: Some(encode_k8sname(PREFIX, name)),
+                name: Some(encode_k8sname(RESOURCE_TYPE_PREFIX_SECRET, name)),
                 labels: Some(
                     setup_labels(RESOURCE_TYPE_SECRET, labels)
                         .chain(label_dependency(RESOURCE_TYPE_NAMESPACE, &self.namespace))
@@ -123,7 +126,7 @@ impl SecretStore {
 
     pub async fn get(&self, name: &str) -> Result<Option<SecretData>, AppError> {
         self.api()
-            .get(&encode_k8sname(PREFIX, name))
+            .get(&encode_k8sname(RESOURCE_TYPE_PREFIX_SECRET, name))
             .await
             .map(|x| {
                 if is_managed_label(RESOURCE_TYPE_SECRET, x.labels()) {
@@ -136,14 +139,23 @@ impl SecretStore {
             .and_then(SecretData::try_from_option_secret)
     }
 
-    pub async fn list(&self, queries: &[LabelQuery]) -> Result<Vec<SecretData>, AppError> {
-        let selector = build_label_query(RESOURCE_TYPE_SECRET, queries)?;
-        let lp = ListParams::default().labels(&selector);
+    pub async fn list(
+        &self,
+        queries: &[LabelQuery],
+        option: ListOption,
+    ) -> Result<(Vec<SecretData>, Option<String>, bool), AppError> {
+        let label_query = build_label_query(RESOURCE_TYPE_SECRET, queries)?;
+        let lp = option.to_list_param(label_query);
         let list = self.api().list(&lp).await.map_err(AppError::from)?;
-        list.items
-            .into_iter()
-            .map(SecretData::try_from_secret)
-            .collect::<Result<Vec<_>, _>>()
+        Ok((
+            list.items
+                .into_iter()
+                .take(option.get_limit())
+                .map(SecretData::try_from_secret)
+                .collect::<Result<Vec<_>, _>>()?,
+            list.metadata.continue_.clone(),
+            option.has_more(&list.metadata),
+        ))
     }
 
     pub async fn delete(
@@ -154,12 +166,13 @@ impl SecretStore {
         let api = self.api();
         let option = option.unwrap_or_default();
 
-        if !option.force.unwrap_or_default() {
-            add_safe_finalizer(self.api(), &encode_k8sname(PREFIX, name), FINALIZER_NAME, 5).await?;
+        if !option.remove_finalizer.unwrap_or_default() {
+            add_safe_finalizer(self.api(), &encode_k8sname(RESOURCE_TYPE_PREFIX_SECRET, name), FINALIZER_NAME, 5)
+                .await?;
         }
 
         let mut result = api
-            .delete(&encode_k8sname(PREFIX, name), &DeleteParams::default())
+            .delete(&encode_k8sname(RESOURCE_TYPE_PREFIX_SECRET, name), &DeleteParams::default())
             .await
             .map_err(AppError::from)?
             .map_left(|_x| DeleteResult::Deleting)
@@ -184,5 +197,28 @@ impl SecretStore {
         }
 
         Ok(result)
+    }
+
+    pub async fn is_deletable(&self, name: &str) -> Result<bool, AppError> {
+        let api = Api::<Secret>::namespaced(self.client.clone(), &self.namespace);
+        let Some(_secret) = api.get_opt(name).await? else {
+            return Ok(false);
+        };
+
+        let has_dep_mcp_templates = self.has_dep_mcp_templates(name).await?;
+        Ok(!has_dep_mcp_templates)
+    }
+
+    async fn has_dep_mcp_templates(&self, name: &str) -> Result<bool, AppError> {
+        let mcp_template_store = Api::<ConfigMap>::namespaced(self.client.clone(), &self.namespace);
+
+        let label = build_label_query(
+            RESOURCE_TYPE_MCP_TEMPLATE,
+            &[label_dependency_query(RESOURCE_TYPE_SECRET, name)],
+        )?
+        .to_string();
+        let lp = ListParams::default().labels(&label).limit(1);
+        let list = mcp_template_store.list(&lp).await.map_err(AppError::from)?;
+        Ok(!list.items.is_empty())
     }
 }

@@ -1,7 +1,6 @@
 pub mod annotations;
 pub mod label_query;
 pub mod labels;
-pub mod lease_manager;
 pub mod mcp_server_store;
 pub mod resource_type;
 pub mod resource_uname;
@@ -11,6 +10,7 @@ pub mod store_namespace;
 pub mod store_resource_limit;
 pub mod store_secret;
 pub mod util_delete;
+pub mod util_list;
 pub mod util_name;
 pub mod utils;
 

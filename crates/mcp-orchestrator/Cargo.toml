@@ -44,6 +44,7 @@ k8s-openapi = { workspace = true }
 
 figment = { workspace = true }
 clap = { workspace = true }
+dotenvy = { workspace = true }
 
 proto = { path = "../proto" }
 

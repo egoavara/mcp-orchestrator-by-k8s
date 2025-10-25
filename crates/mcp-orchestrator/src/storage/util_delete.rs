@@ -7,7 +7,7 @@ pub enum DeleteResult {
 
 #[derive(Clone, Default)]
 pub struct DeleteOption {
-    pub force: Option<bool>,
+    pub remove_finalizer: Option<bool>,
     pub timeout: Option<Duration>,
 }
 
@@ -25,15 +25,15 @@ impl DeleteOption {
         }
     }
 
-    pub fn force() -> Self {
+    pub fn remove_finalizer() -> Self {
         Self {
-            force: Some(true),
+            remove_finalizer: Some(true),
             ..Default::default()
         }
     }
 
     pub fn with_force(mut self, force: bool) -> Self {
-        self.force = Some(force);
+        self.remove_finalizer = Some(force);
         self
     }
 

@@ -1,4 +1,3 @@
-
 use kube::Client;
 
 use crate::{
@@ -38,13 +37,16 @@ impl KubeStore {
     }
 
     pub fn mcp_templates(&self, namespace: Option<String>) -> McpTemplateStore {
-        let ns = namespace.unwrap_or_else(|| self.default_namespace.clone());
-        McpTemplateStore::new(self.client.clone(), ns)
+        let target_namespace = namespace.unwrap_or_else(|| self.default_namespace.clone());
+        McpTemplateStore::new(
+            self.client.clone(),
+            target_namespace,
+            self.default_namespace.clone(),
+        )
     }
 
-    pub fn resource_limits(&self, namespace: Option<String>) -> ResourceLimitStore {
-        let ns = namespace.unwrap_or_else(|| self.default_namespace.clone());
-        ResourceLimitStore::new(self.client.clone(), ns)
+    pub fn resource_limits(&self) -> ResourceLimitStore {
+        ResourceLimitStore::new(self.client.clone(), self.default_namespace.clone())
     }
 
     // pub fn mcp_servers(&self, namespace: Option<String>) -> McpServerStore {

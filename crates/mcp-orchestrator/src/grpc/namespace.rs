@@ -1,4 +1,3 @@
-
 use proto::mcp::orchestrator::v1::*;
 use tonic::{Request, Response, Status};
 
@@ -7,6 +6,7 @@ use crate::grpc::utils::convert_label_query;
 use crate::state::AppState;
 use crate::storage::NamespaceData;
 use crate::storage::util_delete::DeleteOption;
+use crate::storage::util_list::ListOption;
 
 fn from(ns: NamespaceData) -> NamespaceResponse {
     NamespaceResponse {
@@ -57,19 +57,23 @@ pub async fn list_namespaces(
 
     let label_query = convert_label_query(req.label.unwrap_or_default());
 
-    let namespaces = store
-        .list(label_query.as_ref())
+    let (namespaces, continue_token, has_more) = store
+        .list(
+            label_query.as_ref(),
+            ListOption {
+                after: req.after,
+                first: req.first,
+            },
+        )
         .await
         .map_err(|e| Status::internal(format!("Failed to list namespaces: {}", e)))?;
 
-    let responses = namespaces.into_iter().map(from).collect::<Vec<_>>();
-
-    let total = responses.len() as i32;
+    let data = namespaces.into_iter().map(from).collect::<Vec<_>>();
 
     Ok(Response::new(ListNamespacesResponse {
-        namespaces: responses,
-        next_page_token: String::new(),
-        total_count: total,
+        data,
+        end_cursor: continue_token,
+        has_next_page: has_more,
     }))
 }
 

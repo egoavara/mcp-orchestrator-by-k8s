@@ -1,4 +1,3 @@
-
 use proto::mcp::orchestrator::v1::*;
 use tonic::{Request, Response, Status};
 
@@ -7,6 +6,7 @@ use crate::grpc::utils::convert_label_query;
 use crate::state::AppState;
 use crate::storage::SecretData;
 use crate::storage::util_delete::{DeleteOption, DeleteResult};
+use crate::storage::util_list::ListOption;
 
 fn from(secret: SecretData) -> SecretResponse {
     SecretResponse {
@@ -70,19 +70,23 @@ pub async fn list_secrets(
 
     let label_query = convert_label_query(req.label.unwrap_or_default());
 
-    let secrets = store
-        .list(&label_query)
+    let (secrets, continue_token, has_more) = store
+        .list(
+            &label_query,
+            ListOption {
+                after: req.after,
+                first: req.first,
+            },
+        )
         .await
         .map_err(|e| Status::internal(format!("Failed to list secrets: {}", e)))?;
 
-    let responses = secrets.into_iter().map(from).collect::<Vec<_>>();
-
-    let total = responses.len() as i32;
+    let data = secrets.into_iter().map(from).collect::<Vec<_>>();
 
     Ok(Response::new(ListSecretsResponse {
-        secrets: responses,
-        next_page_token: String::new(),
-        total_count: total,
+        data,
+        end_cursor: continue_token,
+        has_next_page: has_more,
     }))
 }
 

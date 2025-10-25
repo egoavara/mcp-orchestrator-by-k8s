@@ -12,10 +12,11 @@ use super::labels::{LABEL_MANAGED_BY, LABEL_MANAGED_BY_VALUE, setup_labels};
 use crate::{
     error::AppError,
     storage::{
-        util_delete::{DeleteOption, DeleteResult},
         label_query::build_label_query,
         labels::{LABEL_MANAGED_BY_QUERY, LABEL_TYPE_OF, is_managed_label},
         resource_type::RESOURCE_TYPE_NAMESPACE,
+        util_delete::{DeleteOption, DeleteResult},
+        util_list::ListOption,
         utils::{add_safe_finalizer, del_safe_finalizer, interval_timeout},
     },
 };
@@ -142,15 +143,23 @@ impl NamespaceStore {
             .map_err(AppError::from)
     }
 
-    pub async fn list(&self, queries: &[LabelQuery]) -> Result<Vec<NamespaceData>, AppError> {
-        let selector = build_label_query(RESOURCE_TYPE_NAMESPACE, queries)?;
-        let lp = ListParams::default().labels(&selector);
+    pub async fn list(
+        &self,
+        queries: &[LabelQuery],
+        option: ListOption,
+    ) -> Result<(Vec<NamespaceData>, Option<String>, bool), AppError> {
+        let label_query = build_label_query(RESOURCE_TYPE_NAMESPACE, queries)?;
+        let lp = option.to_list_param(label_query);
         let list = self.api.list(&lp).await.map_err(AppError::from)?;
-        Ok(list
-            .items
-            .into_iter()
-            .map(NamespaceData::from_namespace)
-            .collect())
+        Ok((
+            list.items
+                .into_iter()
+                .take(option.get_limit())
+                .map(NamespaceData::from_namespace)
+                .collect::<Vec<_>>(),
+            list.metadata.continue_.clone(),
+            option.has_more(&list.metadata),
+        ))
     }
 
     pub async fn delete(
@@ -163,7 +172,7 @@ impl NamespaceStore {
         }
         let option = option.unwrap_or_default();
 
-        if option.force.unwrap_or_default() {
+        if option.remove_finalizer.unwrap_or_default() {
             del_safe_finalizer(self.api.clone(), name, FINALIZER_NAME, 5).await?;
         } else {
             add_safe_finalizer(self.api.clone(), name, FINALIZER_NAME, 5).await?;
@@ -202,6 +211,11 @@ impl NamespaceStore {
         if name == self.default_namespace {
             return Ok(false);
         }
+        let api_namespace = Api::<Namespace>::all(self.client.clone());
+        let Some(_namespace) = api_namespace.get_opt(name).await? else {
+            return Ok(false);
+        };
+
         let pod = Api::<Pod>::namespaced(self.client.clone(), name);
         let secret = Api::<Secret>::namespaced(self.client.clone(), name);
         let configmap =
@@ -223,7 +237,8 @@ impl NamespaceStore {
             )
             .await
             .map_err(AppError::from)?
-            .items.is_empty();
+            .items
+            .is_empty();
         let secret_exists = !secret
             .list_metadata(
                 &ListParams::default()
@@ -232,7 +247,8 @@ impl NamespaceStore {
             )
             .await
             .map_err(AppError::from)?
-            .items.is_empty();
+            .items
+            .is_empty();
         let configmap_exists = !configmap
             .list_metadata(
                 &ListParams::default()
@@ -241,7 +257,8 @@ impl NamespaceStore {
             )
             .await
             .map_err(AppError::from)?
-            .items.is_empty();
+            .items
+            .is_empty();
         let service_exists = !service
             .list_metadata(
                 &ListParams::default()
@@ -250,7 +267,8 @@ impl NamespaceStore {
             )
             .await
             .map_err(AppError::from)?
-            .items.is_empty();
+            .items
+            .is_empty();
         let pvc_exists = !pvc
             .list_metadata(
                 &ListParams::default()
@@ -259,7 +277,8 @@ impl NamespaceStore {
             )
             .await
             .map_err(AppError::from)?
-            .items.is_empty();
+            .items
+            .is_empty();
         let ingress_exists = !ingress
             .list_metadata(
                 &ListParams::default()
@@ -268,7 +287,8 @@ impl NamespaceStore {
             )
             .await
             .map_err(AppError::from)?
-            .items.is_empty();
+            .items
+            .is_empty();
 
         Ok(!pod_exists
             && !secret_exists

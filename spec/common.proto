@@ -2,19 +2,13 @@ syntax = "proto3";
 
 package mcp.orchestrator.v1;
 
-message EnvVar {
-  string key = 1;
-  string value = 2;
-}
-
-message SecretEnvVar {
-  string name = 1;
-  optional string key_from = 2;
-  optional string key_to =  3;
-}
-
 message VolumeMount {
   string pattern = 1;
+  string mount_path = 2;
+}
+
+message SecretMount {
+  string name = 1;
   string mount_path = 2;
 }
 

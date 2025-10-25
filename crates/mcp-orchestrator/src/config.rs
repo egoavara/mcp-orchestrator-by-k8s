@@ -192,6 +192,10 @@ impl Default for KubernetesConfig {
 
 impl AppConfig {
     pub fn load() -> Result<Self, figment::Error> {
+        if let Some(err) = dotenvy::dotenv().err() {
+            tracing::warn!("Failed to load .env file, ignore .env: {}", err);
+        }
+
         let cli = Cli::parse();
 
         let mut figment = Figment::new().merge(Serialized::defaults(AppConfig::default()));

@@ -15,14 +15,14 @@ message GetNamespaceRequest {
 
 message ListNamespacesRequest {
   LabelQuery label = 1;
-  int32 page_size = 2;
-  string page_token = 3;
+  optional int32 first = 3;
+  optional string after = 4;
 }
 
 message ListNamespacesResponse {
-  repeated NamespaceResponse namespaces = 1;
-  string next_page_token = 2;
-  int32 total_count = 3;
+  repeated NamespaceResponse data = 1;
+  optional string endCursor = 2;
+  bool hasNextPage = 3;
 }
 
 message DeleteNamespaceRequest {
