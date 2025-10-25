@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, hash::Hash};
+use std::collections::BTreeMap;
 
 use crate::storage::{label_query::LabelQuery, labels::label_filter};
 use proto::mcp::orchestrator::v1::{self, LabelKeyValue, LabelKeyValues};
@@ -15,7 +15,7 @@ pub fn convert_label_query(label: v1::LabelQuery) -> Vec<LabelQuery> {
         queries.push(LabelQuery::ContainKey { key });
     }
     for key in label.not_contain_key {
-        queries.push(LabelQuery::NotContainKey { key: key });
+        queries.push(LabelQuery::NotContainKey { key });
     }
     for LabelKeyValues { key, values } in label.r#in {
         queries.push(LabelQuery::In { key, values });

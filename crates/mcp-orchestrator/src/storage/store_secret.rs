@@ -1,22 +1,20 @@
 use std::vec;
 
 use chrono::{DateTime, Duration, Utc};
-use json_patch::{AddOperation, PatchOperation};
-use k8s_openapi::api::core::v1::{ConfigMap, Pod, Secret};
+use k8s_openapi::api::core::v1::Secret;
 use kube::{
     Api, Client, Resource, ResourceExt,
-    api::{DeleteParams, ListParams, ObjectMeta, Patch, PatchParams, PostParams, WatchParams},
+    api::{DeleteParams, ListParams, ObjectMeta, PostParams},
 };
-use serde_json::json;
 
 use super::label_query::{LabelQuery, build_label_query};
-use super::labels::{LABEL_MANAGED_BY, LABEL_MANAGED_BY_VALUE, LABEL_TYPE_OF, setup_labels};
+use super::labels::setup_labels;
 use crate::{
     error::AppError,
     storage::{
         labels::{is_managed_label, label_dependency},
         resource_type::{RESOURCE_TYPE_NAMESPACE, RESOURCE_TYPE_SECRET},
-        resource_uname::{resource_fullpath, resource_relpath},
+        resource_uname::resource_fullpath,
         util_delete::{DeleteOption, DeleteResult},
         util_name::{decode_k8sname, encode_k8sname},
         utils::{add_safe_finalizer, interval_timeout},
@@ -54,7 +52,7 @@ impl SecretData {
             created_at: secret
                 .creation_timestamp()
                 .map(|x| x.0)
-                .unwrap_or_else(|| Utc::now()),
+                .unwrap_or_else(Utc::now),
             deleted_at: secret.meta().deletion_timestamp.clone().map(|x| x.0),
             raw: secret,
         })
@@ -128,7 +126,7 @@ impl SecretStore {
             .get(&encode_k8sname(PREFIX, name))
             .await
             .map(|x| {
-                if is_managed_label(RESOURCE_TYPE_SECRET, &x.labels()) {
+                if is_managed_label(RESOURCE_TYPE_SECRET, x.labels()) {
                     Some(x)
                 } else {
                     None
@@ -139,7 +137,7 @@ impl SecretStore {
     }
 
     pub async fn list(&self, queries: &[LabelQuery]) -> Result<Vec<SecretData>, AppError> {
-        let selector = build_label_query(RESOURCE_TYPE_SECRET, &queries)?;
+        let selector = build_label_query(RESOURCE_TYPE_SECRET, queries)?;
         let lp = ListParams::default().labels(&selector);
         let list = self.api().list(&lp).await.map_err(AppError::from)?;
         list.items

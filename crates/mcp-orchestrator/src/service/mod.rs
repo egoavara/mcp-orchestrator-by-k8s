@@ -1,13 +1,11 @@
 use futures::{TryFutureExt, TryStreamExt};
-use k8s_openapi::api::core::v1::{ConfigMap, Namespace, ObjectReference, Pod, Secret};
+use k8s_openapi::api::core::v1::{ConfigMap, Namespace, Secret};
 use kube::{
     Api, Resource, ResourceExt,
-    core::object,
     runtime::{
         WatchStreamExt,
-        events::{self, Event},
         metadata_watcher,
-        watcher::{self, Config},
+        watcher::Config,
     },
 };
 
@@ -15,9 +13,7 @@ use crate::{
     state::AppState,
     storage::{
         labels::LABEL_MANAGED_BY_QUERY,
-        store_resource_limit,
         util_delete::DeleteOption,
-        utils::{add_safe_finalizer, del_safe_finalizer},
     },
 };
 

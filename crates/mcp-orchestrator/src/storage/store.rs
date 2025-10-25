@@ -1,15 +1,9 @@
-use std::f32::consts::E;
 
-use k8s_openapi::api::core::v1::Namespace;
-use kube::{
-    Api, Client, ResourceExt,
-    api::{Patch, PatchParams},
-};
-use serde_json::json;
+use kube::Client;
 
 use crate::{
     error::AppError,
-    storage::{labels::{setup_labels, LABEL_MANAGED_BY}, McpTemplateStore, NamespaceStore, ResourceLimitStore, SecretStore},
+    storage::{McpTemplateStore, NamespaceStore, ResourceLimitStore, SecretStore},
 };
 
 #[derive(Clone)]

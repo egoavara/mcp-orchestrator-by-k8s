@@ -1,15 +1,11 @@
-use std::collections::BTreeMap;
 
 use proto::mcp::orchestrator::v1::*;
 use tonic::{Request, Response, Status};
 
 use crate::error::AppError;
-use crate::grpc::utils::{convert_label, convert_label_query};
+use crate::grpc::utils::convert_label_query;
 use crate::state::AppState;
 use crate::storage::SecretData;
-use crate::storage::resource_type::RESOURCE_TYPE_SECRET;
-use crate::storage::resource_uname::resource_fullpath;
-use crate::storage::store_secret::SecretStore;
 use crate::storage::util_delete::{DeleteOption, DeleteResult};
 
 fn from(secret: SecretData) -> SecretResponse {
@@ -60,7 +56,7 @@ pub async fn get_secret(
         .get(&req.name)
         .await
         .map_err(|e| Status::internal(format!("Failed to get secret: {}", e)))?
-        .ok_or_else(|| Status::not_found(format!("Secret not found")))?;
+        .ok_or_else(|| Status::not_found("Secret not found".to_string()))?;
 
     Ok(Response::new(from(secret)))
 }
@@ -113,8 +109,8 @@ pub async fn delete_secret(
         })?;
 
     let (success, message) = match result {
-        DeleteResult::Deleted => (true, format!("Secret deleted successfully")),
-        DeleteResult::Deleting => (false, format!("Secret is being deleted")),
+        DeleteResult::Deleted => (true, "Secret deleted successfully".to_string()),
+        DeleteResult::Deleting => (false, "Secret is being deleted".to_string()),
     };
 
     Ok(Response::new(DeleteSecretResponse { success, message }))

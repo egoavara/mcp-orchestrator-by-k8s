@@ -77,7 +77,7 @@ impl ResourceLimitData {
             created_at: cm
                 .creation_timestamp()
                 .map(|x| x.0)
-                .unwrap_or_else(|| Utc::now()),
+                .unwrap_or_else(Utc::now),
             deleted_at: cm.meta().deletion_timestamp.clone().map(|x| x.0),
             raw: cm,
         })
@@ -122,7 +122,7 @@ impl ResourceLimitStore {
                         .collect(),
                 ),
                 annotations: Some(
-                    vec![annotation_description(&description)]
+                    vec![annotation_description(description)]
                         .into_iter()
                         .collect(),
                 ),
@@ -155,7 +155,7 @@ impl ResourceLimitStore {
             .get(&encode_k8sname(PREFIX, name))
             .await
             .map(|x| {
-                if is_managed_label(RESOURCE_TYPE_RESOURCE_LIMIT, &x.labels()) {
+                if is_managed_label(RESOURCE_TYPE_RESOURCE_LIMIT, x.labels()) {
                     Some(x)
                 } else {
                     None
@@ -166,7 +166,7 @@ impl ResourceLimitStore {
     }
 
     pub async fn list(&self, queries: &[LabelQuery]) -> Result<Vec<ResourceLimitData>, AppError> {
-        let selector = build_label_query(RESOURCE_TYPE_RESOURCE_LIMIT, &queries)?;
+        let selector = build_label_query(RESOURCE_TYPE_RESOURCE_LIMIT, queries)?;
         let lp = ListParams::default().labels(&selector);
         let list = self.api().list(&lp).await.map_err(AppError::from)?;
         list.items

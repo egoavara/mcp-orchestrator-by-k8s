@@ -1,18 +1,14 @@
-use std::{borrow::Cow, collections::BTreeMap, fmt::Debug, result};
+use std::{collections::BTreeMap, fmt::Debug};
 
 use chrono::Duration;
-use k8s_openapi::api::{core::v1::ObjectReference, events};
 use kube::{
     ResourceExt,
     api::PatchParams,
-    runtime::{
-        finalizer,
-        reflector::{Lookup, ObjectRef},
-    },
+    runtime::reflector::Lookup,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::json;
-use tokio::time::{sleep, timeout};
+use tokio::time::sleep;
 
 use crate::error::AppError;
 
@@ -124,28 +120,23 @@ async fn safe_finalizer_inner<
     )))
 }
 
-pub fn interval_timeout<A, R: std::future::Future<Output = Option<A>> + Send, F: Fn() -> R>(
+pub async fn interval_timeout<A, R: std::future::Future<Output = Option<A>> + Send, F: Fn() -> R>(
     duration: Duration,
     max_duration: Duration,
     f: F,
-) -> impl std::future::Future<Output = Option<A>> {
-    async move {
-        let timeout = tokio::time::timeout(max_duration.to_std().unwrap(), async move {
-            let mut interval = tokio::time::interval(duration.to_std().unwrap());
-            loop {
-                interval.tick().await;
-                let result = f().await;
-                if let Some(result) = result {
-                    return result;
-                }
+) -> Option<A> {
+    let timeout = tokio::time::timeout(max_duration.to_std().unwrap(), async move {
+        let mut interval = tokio::time::interval(duration.to_std().unwrap());
+        loop {
+            interval.tick().await;
+            let result = f().await;
+            if let Some(result) = result {
+                return result;
             }
-        })
-        .await;
-        match timeout {
-            Ok(r) => Some(r),
-            Err(_) => None,
         }
-    }
+    })
+    .await;
+    timeout.ok()
 }
 
 pub fn prepare_data<S: Serialize>(
@@ -182,5 +173,5 @@ pub fn parse_data_elem<D: DeserializeOwned>(
             key
         )));
     };
-    serde_json::from_str::<D>(&value).map_err(AppError::SerializationError)
+    serde_json::from_str::<D>(value).map_err(AppError::SerializationError)
 }

@@ -1,24 +1,15 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use chrono::{DateTime, Duration, Utc};
-use k8s_openapi::api::{
-    core::v1::{ConfigMap, Pod},
-    resource,
-};
+use k8s_openapi::api::core::v1::ConfigMap;
 use kube::{
     Api, Client, Resource, ResourceExt,
-    api::{DeleteParams, ListParams, ObjectMeta, Patch, PatchParams, PostParams},
-    core::labels,
+    api::{DeleteParams, ListParams, ObjectMeta, PostParams},
 };
 use proto::mcp::orchestrator::v1;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 use super::label_query::{LabelQuery, build_label_query};
-use super::labels::{
-    LABEL_MANAGED_BY, LABEL_MANAGED_BY_VALUE, LABEL_TYPE_OF, TYPE_MCP_SERVER, TYPE_MCP_TEMPLATE,
-    setup_labels,
-};
+use super::labels::setup_labels;
 use crate::{
     error::AppError,
     storage::{
@@ -31,7 +22,7 @@ use crate::{
         resource_uname::resource_relpath,
         util_delete::{DeleteOption, DeleteResult},
         util_name::{decode_k8sname, encode_k8sname},
-        utils::{add_safe_finalizer, data_elem, interval_timeout, parse_data_elem, prepare_data},
+        utils::{add_safe_finalizer, data_elem, interval_timeout, parse_data_elem},
     },
 };
 
@@ -109,7 +100,7 @@ impl McpTemplateData {
             created_at: cm
                 .creation_timestamp()
                 .map(|x| x.0)
-                .unwrap_or_else(|| Utc::now()),
+                .unwrap_or_else(Utc::now),
             deleted_at: cm.meta().deletion_timestamp.clone().map(|x| x.0),
             data: cm,
         })
@@ -181,7 +172,7 @@ impl McpTemplateStore {
         .into_iter()
         .collect::<Result<Vec<_>, AppError>>()?
         .into_iter()
-        .filter_map(|x| x)
+        .flatten()
         .map(|x| (x.name.clone(), x))
         .collect::<HashMap<_, _>>();
 
@@ -209,8 +200,8 @@ impl McpTemplateStore {
                                 RESOURCE_TYPE_RESOURCE_LIMIT,
                                 &data.resource_limit_name,
                             ))
-                            .chain(secrets.iter().map(|(name, _)| {
-                                label_dependency_tuple(RESOURCE_TYPE_SECRET, &name)
+                            .chain(secrets.keys().map(|name| {
+                                label_dependency_tuple(RESOURCE_TYPE_SECRET, name)
                             }))
                             .collect(),
                     ),
@@ -246,7 +237,7 @@ impl McpTemplateStore {
             .get(&encode_k8sname(PREFIX, name))
             .await
             .map(|x| {
-                if is_managed_label(RESOURCE_TYPE_MCP_TEMPLATE, &x.labels()) {
+                if is_managed_label(RESOURCE_TYPE_MCP_TEMPLATE, x.labels()) {
                     Some(x)
                 } else {
                     None
@@ -256,11 +247,11 @@ impl McpTemplateStore {
             .and_then(McpTemplateData::try_from_option_config_map)
     }
 
-    pub async fn list<T: for<'de> Deserialize<'de>>(
+    pub async fn list(
         &self,
         queries: &[LabelQuery],
     ) -> Result<Vec<McpTemplateData>, AppError> {
-        let selector = build_label_query(RESOURCE_TYPE_MCP_TEMPLATE, &queries)?;
+        let selector = build_label_query(RESOURCE_TYPE_MCP_TEMPLATE, queries)?;
         let lp = ListParams::default().labels(&selector);
         let list = self.api().list(&lp).await.map_err(AppError::from)?;
         list.items

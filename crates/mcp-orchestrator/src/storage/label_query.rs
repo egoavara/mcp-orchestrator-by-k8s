@@ -1,11 +1,9 @@
-use chrono::format;
 
 use crate::{
     error::AppError,
     storage::labels::{label_fullpath, LABEL_MANAGED_BY, LABEL_MANAGED_BY_VALUE, LABEL_TYPE_OF},
 };
 
-use super::labels::LABEL_CUSTOM_PREFIX;
 
 #[derive(Debug, Clone)]
 pub enum LabelQuery {
@@ -20,22 +18,22 @@ pub enum LabelQuery {
 impl LabelQuery {
     pub fn to_selector_string(&self) -> Result<String, AppError> {
         match self {
-            LabelQuery::Equal { key, value } => Ok(format!("{}={}", label_fullpath(&key)?, value)),
+            LabelQuery::Equal { key, value } => Ok(format!("{}={}", label_fullpath(key)?, value)),
             LabelQuery::NotEqual { key, value } => {
-                Ok(format!("{}!={}", label_fullpath(&key)?, value))
+                Ok(format!("{}!={}", label_fullpath(key)?, value))
             }
             LabelQuery::In { key, values } => Ok(format!(
                 "{} in ({})",
-                label_fullpath(&key)?,
+                label_fullpath(key)?,
                 values.join(",")
             )),
             LabelQuery::NotIn { key, values } => Ok(format!(
                 "{} notin ({})",
-                label_fullpath(&key)?,
+                label_fullpath(key)?,
                 values.join(",")
             )),
-            LabelQuery::ContainKey { key } => Ok(label_fullpath(&key)?),
-            LabelQuery::NotContainKey { key } => Ok(format!("!{}", label_fullpath(&key)?)),
+            LabelQuery::ContainKey { key } => Ok(label_fullpath(key)?),
+            LabelQuery::NotContainKey { key } => Ok(format!("!{}", label_fullpath(key)?)),
         }
     }
 }

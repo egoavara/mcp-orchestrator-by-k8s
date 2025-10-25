@@ -1,4 +1,4 @@
-use kube::{runtime::events::{Recorder, Reporter}, Client};
+use kube::{runtime::events::Recorder, Client};
 
 use crate::storage::store::KubeStore;
 

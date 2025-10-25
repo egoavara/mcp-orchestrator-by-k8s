@@ -14,7 +14,6 @@ pub mod util_delete;
 pub mod util_name;
 pub mod utils;
 
-pub use mcp_server_store::*;
 pub use store_mcp_template::*;
 pub use store_namespace::*;
 pub use store_resource_limit::*;

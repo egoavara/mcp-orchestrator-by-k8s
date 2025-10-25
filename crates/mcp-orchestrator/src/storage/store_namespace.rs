@@ -1,17 +1,11 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    f64::consts::E,
-};
+use std::collections::HashMap;
 
-use chrono::{DateTime, Duration, NaiveDateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use k8s_openapi::api::core::v1::{Namespace, Pod, Secret};
 use kube::{
     Api, Client, Resource, ResourceExt,
-    api::{DeleteParams, ListParams, ObjectMeta, Patch, PatchParams, PostParams},
-    config,
+    api::{DeleteParams, ListParams, ObjectMeta, PostParams},
 };
-use serde_json::{self, json};
-use tracing::info;
 
 use super::label_query::LabelQuery;
 use super::labels::{LABEL_MANAGED_BY, LABEL_MANAGED_BY_VALUE, setup_labels};
@@ -47,7 +41,7 @@ impl NamespaceData {
             created_at: ns
                 .creation_timestamp()
                 .map(|x| x.0)
-                .unwrap_or_else(|| Utc::now()),
+                .unwrap_or_else(Utc::now),
             deleted_at: ns.meta().deletion_timestamp.clone().map(|x| x.0),
             raw: ns,
         }
@@ -149,7 +143,7 @@ impl NamespaceStore {
     }
 
     pub async fn list(&self, queries: &[LabelQuery]) -> Result<Vec<NamespaceData>, AppError> {
-        let selector = build_label_query(RESOURCE_TYPE_NAMESPACE, &queries)?;
+        let selector = build_label_query(RESOURCE_TYPE_NAMESPACE, queries)?;
         let lp = ListParams::default().labels(&selector);
         let list = self.api.list(&lp).await.map_err(AppError::from)?;
         Ok(list
@@ -164,7 +158,7 @@ impl NamespaceStore {
         name: &str,
         option: Option<DeleteOption>,
     ) -> Result<DeleteResult, AppError> {
-        if name == &self.default_namespace {
+        if name == self.default_namespace {
             return Err(AppError::ProtectedNamespace(self.default_namespace.clone()));
         }
         let option = option.unwrap_or_default();
@@ -205,7 +199,7 @@ impl NamespaceStore {
     }
 
     pub async fn is_deletable(&self, name: &str) -> Result<bool, AppError> {
-        if name == &self.default_namespace {
+        if name == self.default_namespace {
             return Ok(false);
         }
         let pod = Api::<Pod>::namespaced(self.client.clone(), name);
@@ -221,7 +215,7 @@ impl NamespaceStore {
         let ingress =
             Api::<k8s_openapi::api::networking::v1::Ingress>::namespaced(self.client.clone(), name);
 
-        let pod_exists = pod
+        let pod_exists = !pod
             .list_metadata(
                 &ListParams::default()
                     .labels(LABEL_MANAGED_BY_QUERY)
@@ -229,10 +223,8 @@ impl NamespaceStore {
             )
             .await
             .map_err(AppError::from)?
-            .items
-            .len()
-            > 0;
-        let secret_exists = secret
+            .items.is_empty();
+        let secret_exists = !secret
             .list_metadata(
                 &ListParams::default()
                     .labels(LABEL_MANAGED_BY_QUERY)
@@ -240,10 +232,8 @@ impl NamespaceStore {
             )
             .await
             .map_err(AppError::from)?
-            .items
-            .len()
-            > 0;
-        let configmap_exists = configmap
+            .items.is_empty();
+        let configmap_exists = !configmap
             .list_metadata(
                 &ListParams::default()
                     .labels(LABEL_MANAGED_BY_QUERY)
@@ -251,10 +241,8 @@ impl NamespaceStore {
             )
             .await
             .map_err(AppError::from)?
-            .items
-            .len()
-            > 0;
-        let service_exists = service
+            .items.is_empty();
+        let service_exists = !service
             .list_metadata(
                 &ListParams::default()
                     .labels(LABEL_MANAGED_BY_QUERY)
@@ -262,10 +250,8 @@ impl NamespaceStore {
             )
             .await
             .map_err(AppError::from)?
-            .items
-            .len()
-            > 0;
-        let pvc_exists = pvc
+            .items.is_empty();
+        let pvc_exists = !pvc
             .list_metadata(
                 &ListParams::default()
                     .labels(LABEL_MANAGED_BY_QUERY)
@@ -273,10 +259,8 @@ impl NamespaceStore {
             )
             .await
             .map_err(AppError::from)?
-            .items
-            .len()
-            > 0;
-        let ingress_exists = ingress
+            .items.is_empty();
+        let ingress_exists = !ingress
             .list_metadata(
                 &ListParams::default()
                     .labels(LABEL_MANAGED_BY_QUERY)
@@ -284,9 +268,7 @@ impl NamespaceStore {
             )
             .await
             .map_err(AppError::from)?
-            .items
-            .len()
-            > 0;
+            .items.is_empty();
 
         Ok(!pod_exists
             && !secret_exists
