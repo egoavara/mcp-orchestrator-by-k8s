@@ -5,15 +5,17 @@ package mcp.orchestrator.v1;
 import "common.proto";
 
 message CreateMcpTemplateRequest {
-  string name = 1;
-  string image = 2;
-  repeated string command = 3;
-  repeated string args = 4;
-  repeated EnvVar env_vars = 5;
-  string resource_limit_name = 6;
-  repeated VolumeMount volume_mounts = 7;
-  optional string namespace = 8;
-  map<string, string> labels = 9;
+  optional string namespace = 1;
+  string name = 2;
+  map<string, string> labels = 3;
+  string image = 4;
+  repeated string command = 5;
+  repeated string args = 6;
+  repeated EnvVar env_vars = 7;
+  repeated SecretEnvVar secret_env_vars = 8;
+  string resource_limit_name = 9;
+  repeated VolumeMount volume_mounts = 10;
+  
 }
 
 message GetMcpTemplateRequest {
@@ -22,7 +24,7 @@ message GetMcpTemplateRequest {
 
 message ListMcpTemplatesRequest {
   optional string namespace = 1;
-  map<string, string> label_selector = 2;
+  LabelQuery label = 2;
   int32 page_size = 3;
   string page_token = 4;
 }
@@ -43,15 +45,16 @@ message DeleteMcpTemplateResponse {
 }
 
 message McpTemplateResponse {
-  string id = 1;
+  string namespace = 1;
   string name = 2;
-  string namespace = 3;
+  map<string, string> labels = 3;
   string image = 4;
   repeated string command = 5;
   repeated string args = 6;
   repeated EnvVar env_vars = 7;
-  string resource_limit_name = 8;
-  repeated VolumeMount volume_mounts = 9;
-  map<string, string> labels = 10;
-  int64 created_at = 11;
+  repeated SecretEnvVar secret_env_vars = 8;
+  string resource_limit_name = 9;
+  repeated VolumeMount volume_mounts = 10;
+  string created_at = 11;
+  optional string deleted_at = 12;
 }

@@ -3,8 +3,14 @@ syntax = "proto3";
 package mcp.orchestrator.v1;
 
 message EnvVar {
-  string name = 1;
+  string key = 1;
   string value = 2;
+}
+
+message SecretEnvVar {
+  string name = 1;
+  optional string key_from = 2;
+  optional string key_to =  3;
 }
 
 message VolumeMount {
@@ -26,18 +32,28 @@ message ResourceLimit {
   map<string, VolumeLimit> volumes = 6;
 }
 
-enum SecretType {
-  SECRET_TYPE_UNSPECIFIED = 0;
-  SECRET_TYPE_OPAQUE = 1;
-  SECRET_TYPE_DOCKER_CONFIG_JSON = 2;
-  SECRET_TYPE_BASIC_AUTH = 3;
-  SECRET_TYPE_SSH_AUTH = 4;
-  SECRET_TYPE_TLS = 5;
-}
-
 enum SecretUpdateStrategy {
   SECRET_UPDATE_STRATEGY_UNSPECIFIED = 0;
   SECRET_UPDATE_STRATEGY_REPLACE = 1;
   SECRET_UPDATE_STRATEGY_MERGE = 2;
   SECRET_UPDATE_STRATEGY_PATCH = 3;
+}
+
+message LabelQuery {
+  repeated LabelKeyValue equal = 1;
+  repeated LabelKeyValue not_equal = 2;
+  repeated LabelKeyValues in = 3;
+  repeated LabelKeyValues not_in = 4;
+  repeated string contain_key = 5;
+  repeated string not_contain_key = 6;
+}
+
+message LabelKeyValue{
+  string key = 1;
+  string value = 2;
+}
+
+message LabelKeyValues{
+  string key = 1;
+  repeated string values = 2;
 }

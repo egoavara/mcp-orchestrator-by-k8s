@@ -1,7 +1,8 @@
 use anyhow::Context;
+use kube::runtime::events::{Recorder, Reporter};
 use proto::mcp::orchestrator::v1::mcp_orchestrator_service_server::McpOrchestratorServiceServer;
-use tower_http::cors::{Any, CorsLayer};
 use tower::ServiceBuilder;
+use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 
 mod config;
@@ -17,17 +18,16 @@ use grpc::GrpcService;
 use http::create_http_router;
 use state::AppState;
 
+use crate::storage::store::KubeStore;
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let config = AppConfig::load()
-        .context("Failed to load configuration")?;
+    let config = AppConfig::load().context("Failed to load configuration")?;
 
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| {
-                    tracing_subscriber::EnvFilter::new(&config.server.log_level)
-                })
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(&config.server.log_level)),
         )
         .init();
 
@@ -47,16 +47,27 @@ async fn main() -> anyhow::Result<()> {
     info!("Kubernetes client initialized");
 
     let store = storage::store::KubeStore::new(kube_client.clone(), &config.kubernetes.namespace);
-    
-    info!("Ensuring default namespace: {}", config.kubernetes.namespace);
-    store.ensure_default_namespace()
+
+    info!(
+        "Ensuring default namespace: {}",
+        config.kubernetes.namespace
+    );
+    store
+        .ensure_default_namespace()
         .await
         .context("Failed to ensure default namespace")?;
     info!("Default namespace ready");
 
-    let state = AppState { 
-        kube_client,
-        default_namespace: config.kubernetes.namespace.clone(),
+    let state = AppState {
+        kube_store: KubeStore::new(kube_client.clone(), &config.kubernetes.namespace),
+        kube_client: kube_client.clone(),
+        kube_recorder: Recorder::new(
+            kube_client.clone(),
+            Reporter {
+                controller: "mcp-orchestrator".to_string(),
+                instance: config.kubernetes.pod.as_ref().map(|p| p.name.clone()),
+            },
+        ),
     };
 
     let grpc_service = GrpcService::new(state.clone());
@@ -71,13 +82,17 @@ async fn main() -> anyhow::Result<()> {
         .layer(tonic_web::GrpcWebLayer::new())
         .service(grpc_server);
 
-    let http_router = create_http_router().with_state(state);
+    let http_router = create_http_router().with_state(state.clone());
 
     let app = http_router.fallback_service(grpc_service_with_web);
 
     let addr = format!("{}:{}", config.server.host, config.server.port);
-    
+
     info!("Server listening on {} (HTTP + gRPC-Web)", addr);
+
+    tokio::spawn(async {
+        service::listeners(state).await;
+    });
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     axum::serve(listener, app.layer(cors)).await?;

@@ -1,10 +1,18 @@
-use kube::Client;
+use std::f32::consts::E;
 
-use super::{
-    McpServerStore, McpTemplateStore, NamespaceStore, ResourceLimitStore, SecretStore,
+use k8s_openapi::api::core::v1::Namespace;
+use kube::{
+    Api, Client, ResourceExt,
+    api::{Patch, PatchParams},
 };
-use crate::error::AppError;
+use serde_json::json;
 
+use crate::{
+    error::AppError,
+    storage::{labels::{setup_labels, LABEL_MANAGED_BY}, McpTemplateStore, NamespaceStore, ResourceLimitStore, SecretStore},
+};
+
+#[derive(Clone)]
 pub struct KubeStore {
     client: Client,
     default_namespace: String,
@@ -27,7 +35,7 @@ impl KubeStore {
     }
 
     pub fn namespaces(&self) -> NamespaceStore {
-        NamespaceStore::new(self.client.clone())
+        NamespaceStore::new(self.client.clone(), self.default_namespace.clone())
     }
 
     pub fn secrets(&self, namespace: Option<String>) -> SecretStore {
@@ -40,19 +48,18 @@ impl KubeStore {
         McpTemplateStore::new(self.client.clone(), ns)
     }
 
-    pub fn resource_limits(&self) -> ResourceLimitStore {
-        ResourceLimitStore::new(self.client.clone())
+    pub fn resource_limits(&self, namespace: Option<String>) -> ResourceLimitStore {
+        let ns = namespace.unwrap_or_else(|| self.default_namespace.clone());
+        ResourceLimitStore::new(self.client.clone(), ns)
     }
 
-    pub fn mcp_servers(&self, namespace: Option<String>) -> McpServerStore {
-        let ns = namespace.unwrap_or_else(|| self.default_namespace.clone());
-        McpServerStore::new(self.client.clone(), ns)
-    }
+    // pub fn mcp_servers(&self, namespace: Option<String>) -> McpServerStore {
+    //     let ns = namespace.unwrap_or_else(|| self.default_namespace.clone());
+    //     McpServerStore::new(self.client.clone(), ns)
+    // }
 
     pub async fn ensure_default_namespace(&self) -> Result<(), AppError> {
-        self.namespaces()
-            .ensure_default_namespace(&self.default_namespace)
-            .await?;
+        self.namespaces().ensure_default_namespace().await?;
         Ok(())
     }
 }

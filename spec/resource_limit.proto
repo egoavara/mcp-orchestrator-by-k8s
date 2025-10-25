@@ -6,9 +6,8 @@ import "common.proto";
 
 message CreateResourceLimitRequest {
   string name = 1;
-  string display_name = 2;
   string description = 3;
-  ResourceLimit limits = 4;
+  ResourceLimit limits = 6;
   map<string, string> labels = 5;
 }
 
@@ -17,7 +16,7 @@ message GetResourceLimitRequest {
 }
 
 message ListResourceLimitsRequest {
-  map<string, string> label_selector = 1;
+  LabelQuery label = 1;
   int32 page_size = 2;
   string page_token = 3;
 }
@@ -41,10 +40,9 @@ message DeleteResourceLimitResponse {
 
 message ResourceLimitResponse {
   string name = 1;
-  string display_name = 2;
   string description = 3;
   ResourceLimit limits = 4;
   map<string, string> labels = 5;
-  int64 created_at = 6;
-  int32 usage_count = 7;
+  string created_at = 6;
+  optional string deleted_at = 7;
 }

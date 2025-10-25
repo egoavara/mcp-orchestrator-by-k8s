@@ -51,9 +51,9 @@ message McpServerResponse {
   string resource_limit_name = 10;
   repeated ResolvedVolume volumes = 11;
   map<string, string> labels = 12;
-  int64 created_at = 13;
-  optional int64 started_at = 14;
   optional string pod_name = 15;
   optional string pod_ip = 16;
   optional string node_name = 17;
+  string created_at = 18;
+  optional string deleted_at = 19;
 }

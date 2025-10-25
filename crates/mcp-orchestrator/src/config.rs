@@ -1,7 +1,7 @@
 use clap::Parser;
 use figment::{
-    providers::{Env, Format, Serialized, Yaml},
     Figment,
+    providers::{Env, Format, Serialized, Yaml},
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -10,28 +10,61 @@ use std::path::PathBuf;
 #[command(name = "mcp-orchestrator")]
 #[command(about = "MCP Orchestrator - Kubernetes-based MCP server management", long_about = None)]
 pub struct Cli {
-    #[arg(short, long, value_name = "FILE", default_value = "./config.yaml", help = "Path to configuration file")]
+    #[arg(
+        short,
+        long,
+        value_name = "FILE",
+        default_value = "./config.yaml",
+        help = "Path to configuration file"
+    )]
     pub config: PathBuf,
 
-    #[arg(long, env = "HOST", help = "Server bind address [env: HOST or MCP_SERVER_HOST]")]
+    #[arg(
+        long,
+        env = "HOST",
+        help = "Server bind address [env: HOST or MCP_SERVER_HOST]"
+    )]
     pub host: Option<String>,
 
-    #[arg(long, env = "PORT", help = "Server bind port [env: PORT or MCP_SERVER_PORT]")]
+    #[arg(
+        long,
+        env = "PORT",
+        help = "Server bind port [env: PORT or MCP_SERVER_PORT]"
+    )]
     pub port: Option<u16>,
 
-    #[arg(long, env = "LOG_LEVEL", help = "Log level: trace, debug, info, warn, error [env: LOG_LEVEL or MCP_SERVER_LOG_LEVEL]")]
+    #[arg(
+        long,
+        env = "LOG_LEVEL",
+        help = "Log level: trace, debug, info, warn, error [env: LOG_LEVEL or MCP_SERVER_LOG_LEVEL]"
+    )]
     pub log_level: Option<String>,
 
-    #[arg(long, env = "KUBE_NAMESPACE", help = "Default Kubernetes namespace for MCP servers [env: KUBE_NAMESPACE or MCP_KUBERNETES_NAMESPACE]")]
+    #[arg(
+        long,
+        env = "KUBE_NAMESPACE",
+        help = "Default Kubernetes namespace for MCP servers [env: KUBE_NAMESPACE or MCP_KUBERNETES_NAMESPACE]"
+    )]
     pub kube_namespace: Option<String>,
 
-    #[arg(long, env = "KUBE_CONTEXT", help = "Kubernetes context to use [env: KUBE_CONTEXT or MCP_KUBERNETES_CONTEXT]")]
+    #[arg(
+        long,
+        env = "KUBE_CONTEXT",
+        help = "Kubernetes context to use [env: KUBE_CONTEXT or MCP_KUBERNETES_CONTEXT]"
+    )]
     pub kube_context: Option<String>,
+
+    #[arg(
+        long,
+        env = "POD_NAME",
+        help = "Name of the pod running this instance [env: POD_NAME or MCP_POD_NAME]"
+    )]
+    pub pod_name: Option<String>,
 }
 
 fn remove_nulls(value: serde_json::Value) -> serde_json::Value {
     use serde_json::{Map, Value};
-    
+
     match value {
         Value::Object(map) => {
             let filtered: Map<String, Value> = map
@@ -60,7 +93,7 @@ fn remove_nulls(value: serde_json::Value) -> serde_json::Value {
 impl Cli {
     fn to_figment_map(&self) -> serde_json::Value {
         use serde_json::json;
-        
+
         let value = json!({
             "server": {
                 "host": self.host,
@@ -70,9 +103,12 @@ impl Cli {
             "kubernetes": {
                 "namespace": self.kube_namespace,
                 "context": self.kube_context,
+                "pod": {
+                    "name": self.pod_name,
+                }
             }
         });
-        
+
         remove_nulls(value)
     }
 }
@@ -96,10 +132,17 @@ pub struct KubernetesConfig {
 
     #[serde(default)]
     pub context: Option<String>,
+
+    #[serde(default)]
+    pub pod: Option<PodConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+pub struct PodConfig {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AppConfig {
     #[serde(default)]
     pub server: ServerConfig,
@@ -123,6 +166,9 @@ fn default_log_level() -> String {
 fn default_kube_namespace() -> String {
     "mcp-servers".to_string()
 }
+fn default_pod_name() -> String {
+    format!("unknown-{}", uuid::Uuid::new_v4().as_simple())
+}
 
 impl Default for ServerConfig {
     fn default() -> Self {
@@ -139,17 +185,16 @@ impl Default for KubernetesConfig {
         Self {
             namespace: default_kube_namespace(),
             context: None,
+            pod: None,
         }
     }
 }
 
-
 impl AppConfig {
     pub fn load() -> Result<Self, figment::Error> {
         let cli = Cli::parse();
-        
-        let mut figment = Figment::new()
-            .merge(Serialized::defaults(AppConfig::default()));
+
+        let mut figment = Figment::new().merge(Serialized::defaults(AppConfig::default()));
 
         if cli.config.exists() {
             figment = figment.merge(Yaml::file(&cli.config));

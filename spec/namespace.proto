@@ -2,10 +2,11 @@ syntax = "proto3";
 
 package mcp.orchestrator.v1;
 
+import "common.proto";
+
 message CreateNamespaceRequest {
   string name = 1;
   map<string, string> labels = 2;
-  map<string, string> annotations = 3;
 }
 
 message GetNamespaceRequest {
@@ -13,7 +14,7 @@ message GetNamespaceRequest {
 }
 
 message ListNamespacesRequest {
-  map<string, string> label_selector = 1;
+  LabelQuery label = 1;
   int32 page_size = 2;
   string page_token = 3;
 }
@@ -36,6 +37,6 @@ message DeleteNamespaceResponse {
 message NamespaceResponse {
   string name = 1;
   map<string, string> labels = 2;
-  int64 created_at = 3;
-  string status = 4;
+  string created_at = 3;
+  optional string deleted_at = 4;
 }
