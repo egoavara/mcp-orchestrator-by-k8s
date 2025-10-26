@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Duration, Utc};
-use k8s_openapi::api::core::v1::{ConfigMap, Pod};
+use k8s_openapi::api::core::v1::{ConfigMap, Container, Pod, PodSpec};
 use kube::{
     Api, Client, Resource, ResourceExt,
     api::{DeleteParams, ListParams, ObjectMeta, PostParams},
 };
 use proto::mcp::orchestrator::v1;
+use rmcp::transport::streamable_http_server::SessionId;
 
 use super::label_query::{LabelQuery, build_label_query};
 use super::labels::setup_labels;
@@ -14,8 +15,10 @@ use crate::{
     error::AppError,
     storage::{
         ResourceLimitStore, SecretStore,
+        finalizer::FINALIZER_MCP_SERVER,
         labels::{
-            is_managed_label, label_dependency, label_dependency_query, label_dependency_tuple,
+            LABEL_SESSION_ID, is_managed_label, label_dependency, label_dependency_query,
+            label_dependency_tuple,
         },
         resource_type::{
             RESOURCE_TYPE_MCP_SERVER, RESOURCE_TYPE_MCP_TEMPLATE, RESOURCE_TYPE_NAMESPACE,
@@ -25,7 +28,9 @@ use crate::{
         util_delete::{DeleteOption, DeleteResult},
         util_list::ListOption,
         util_name::{decode_k8sname, encode_k8sname},
-        utils::{add_safe_finalizer, data_elem, interval_timeout, parse_data_elem},
+        utils::{
+            add_safe_finalizer, data_elem, del_safe_finalizer, interval_timeout, parse_data_elem,
+        },
     },
 };
 
@@ -127,6 +132,45 @@ impl McpTemplateData {
             Ok(None)
         }
     }
+
+    pub fn to_pod(&self, session_id: &SessionId) -> Pod {
+        Pod {
+            metadata: ObjectMeta {
+                name: Some(session_id.to_string()),
+                namespace: Some(self.namespace.clone()),
+                labels: Some(
+                    self.labels
+                        .iter()
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .chain(vec![
+                            (LABEL_SESSION_ID.to_string(), session_id.to_string()),
+                            label_dependency_tuple(RESOURCE_TYPE_MCP_TEMPLATE, &self.name),
+                            label_dependency_tuple(
+                                RESOURCE_TYPE_RESOURCE_LIMIT,
+                                &self.resource_limit_name,
+                            ),
+                        ])
+                        .collect(),
+                ),
+                owner_references: Some(vec![self.raw.controller_owner_ref(&()).unwrap()]),
+                ..Default::default()
+            },
+            spec: Some(PodSpec {
+                containers: vec![Container {
+                    name: "main".to_string(),
+                    image: Some(self.image.clone()),
+                    command: Some(self.command.clone()),
+                    args: Some(self.args.clone()),
+                    stdin: Some(true),
+                    tty: Some(false),
+                    // env: Some(self.envs.clone()),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
 }
 
 pub struct McpTemplateStore {
@@ -169,6 +213,7 @@ impl McpTemplateStore {
         labels: L,
         data: McpTemplateCreate,
     ) -> Result<McpTemplateData, AppError> {
+        let name = encode_k8sname(RESOURCE_TYPE_PREFIX_MCP_TEMPLATE, name);
         let api = self.api();
         let secret_store = SecretStore::new(self.client.clone(), self.target_namespace.clone());
         let resource_limit_store =
@@ -216,7 +261,7 @@ impl McpTemplateStore {
         let configmap = ConfigMap {
             metadata: ObjectMeta {
                 namespace: Some(self.target_namespace.clone()),
-                name: Some(encode_k8sname(RESOURCE_TYPE_PREFIX_MCP_TEMPLATE, name)),
+                name: Some(name),
                 labels: Some(
                     setup_labels(RESOURCE_TYPE_MCP_TEMPLATE, labels)
                         .chain(label_dependency(
@@ -264,18 +309,20 @@ impl McpTemplateStore {
     }
 
     pub async fn get(&self, name: &str) -> Result<Option<McpTemplateData>, AppError> {
+        let name = encode_k8sname(RESOURCE_TYPE_PREFIX_MCP_TEMPLATE, name);
         self.api()
-            .get(&encode_k8sname(RESOURCE_TYPE_PREFIX_MCP_TEMPLATE, name))
+            .get_opt(&name)
             .await
-            .map(|x| {
+            .map_err(AppError::from)?
+            .and_then(|x| {
                 if is_managed_label(RESOURCE_TYPE_MCP_TEMPLATE, x.labels()) {
                     Some(x)
                 } else {
                     None
                 }
             })
-            .map_err(AppError::from)
-            .and_then(McpTemplateData::try_from_option_config_map)
+            .map(McpTemplateData::try_from_config_map)
+            .transpose()
     }
 
     pub async fn list(
@@ -302,32 +349,35 @@ impl McpTemplateStore {
         name: &str,
         option: Option<DeleteOption>,
     ) -> Result<DeleteResult, AppError> {
+        let name = encode_k8sname(RESOURCE_TYPE_PREFIX_MCP_TEMPLATE, name);
         let api = self.api();
         let option = option.unwrap_or_default();
 
-        if !option.remove_finalizer.unwrap_or_default() {
-            add_safe_finalizer(
-                self.api(),
-                &encode_k8sname(RESOURCE_TYPE_PREFIX_MCP_TEMPLATE, name),
-                FINALIZER_NAME,
-                5,
-            )
-            .await?;
+        if option.remove_finalizer.unwrap_or_default() {
+            del_safe_finalizer(self.api().clone(), &name, FINALIZER_NAME, 5).await?;
+        } else {
+            add_safe_finalizer(self.api().clone(), &name, FINALIZER_NAME, 5).await?;
         }
 
         let mut result = api
-            .delete(
-                &encode_k8sname(RESOURCE_TYPE_PREFIX_MCP_TEMPLATE, name),
-                &DeleteParams::default(),
-            )
+            .delete(&name, &DeleteParams::default())
             .await
-            .map_err(AppError::from)?
-            .map_left(|_x| DeleteResult::Deleting)
-            .map_right(|_x| DeleteResult::Deleted)
-            .into_inner();
+            .map(|ok| {
+                ok.map_left(|_x| DeleteResult::Deleting)
+                    .map_right(|_x| DeleteResult::Deleted)
+                    .into_inner()
+            })
+            .or_else(|err| match err {
+                kube::Error::Api(ae)
+                    if ae.code == 404 && option.remove_finalizer.unwrap_or_default() =>
+                {
+                    Ok(DeleteResult::Deleted)
+                }
+                err => Err(AppError::from(err)),
+            })?;
         if let Some(wait) = option.timeout {
             result = interval_timeout(Duration::milliseconds(300), wait, || async {
-                api.get(name).await.map(|_| None).unwrap_or_else(|e| {
+                api.get(&name).await.map(|_| None).unwrap_or_else(|e| {
                     if let kube::Error::Api(ae) = e {
                         if ae.code == 404 {
                             return Some(true);
@@ -347,8 +397,9 @@ impl McpTemplateStore {
     }
 
     pub async fn is_deletable(&self, name: &str) -> Result<bool, AppError> {
+        let raw_name = encode_k8sname(RESOURCE_TYPE_PREFIX_MCP_TEMPLATE, name);
         let api = Api::<ConfigMap>::namespaced(self.client.clone(), &self.target_namespace);
-        let Some(_configmap) = api.get_opt(name).await? else {
+        let Some(_configmap) = api.get_opt(&raw_name).await? else {
             return Ok(false);
         };
 

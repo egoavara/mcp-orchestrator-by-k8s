@@ -1,4 +1,5 @@
-use futures::{TryFutureExt, TryStreamExt};
+use chrono::Duration;
+use futures::{FutureExt, TryFutureExt, TryStreamExt};
 use k8s_openapi::api::core::v1::{ConfigMap, Namespace, Secret};
 use kube::{
     Api, Resource, ResourceExt,
@@ -7,8 +8,13 @@ use kube::{
         watcher::{Config, Event},
     },
 };
+use tokio_util::sync::CancellationToken;
+
+mod interval_orphan_sesssion;
+pub(crate) mod util;
 
 use crate::{
+    service::util::interval_handler,
     state::AppState,
     storage::{
         label_query::build_label_query,
@@ -25,13 +31,19 @@ use crate::{
     },
 };
 
-pub async fn listeners(state: AppState) {
+pub async fn listeners(state: AppState, ct: CancellationToken) {
     // let pod = Api::<Pod>::all(state.kube_client.clone());
     // let secret = Api::<Secret>::all(state.kube_client.clone());
     tokio::spawn(namespace_listener(state.clone()));
     tokio::spawn(secret_listener(state.clone()));
     tokio::spawn(mcp_template_listener(state.clone()));
     tokio::spawn(resource_limit_listener(state.clone()));
+    interval_handler(
+        state,
+        Duration::seconds(15),
+        ct.clone(),
+        crate::make_interval_handler!(interval_orphan_sesssion::check_orphan_session),
+    );
 }
 
 async fn secret_listener(state: AppState) {
@@ -121,17 +133,13 @@ async fn namespace_listener(state: AppState) {
 }
 
 async fn handle_delete_namespace(kubestore: KubeStore, namespace: String) {
-    let resource = kubestore
-        .namespaces()
-        .api
-        .get(&namespace)
-        .await
-        .map_err(|err| {
-            tracing::error!("Failed to get namespace {}: {}", namespace, err);
-            err
-        })
-        .unwrap();
-    if let Some(deletion_timestamp) = &resource.meta().deletion_timestamp {
+    let Ok(Some(resource)) = kubestore.namespaces().get(&namespace).await.map_err(|err| {
+        tracing::error!("Failed to get namespace {}: {}", namespace, err);
+        err
+    }) else {
+        return;
+    };
+    if let Some(deletion_timestamp) = &resource.raw.meta().deletion_timestamp {
         let store = kubestore.namespaces();
         let is_deletable = store
             .is_deletable(&namespace)
@@ -172,21 +180,15 @@ async fn handle_delete_resource_limit(kubestore: KubeStore, namespace: String, r
         );
         return;
     };
-    let Some(resource) = kubestore
-        .resource_limits()
-        .get(&name)
-        .await
-        .map_err(|err| {
-            tracing::error!(
-                "Failed to get resource limit {}/{}: {}",
-                &namespace,
-                &raw_name,
-                err
-            );
+    let Ok(Some(resource)) = kubestore.resource_limits().get(&name).await.map_err(|err| {
+        tracing::error!(
+            "Failed to get resource limit {}/{}: {}",
+            &namespace,
+            &raw_name,
             err
-        })
-        .unwrap()
-    else {
+        );
+        err
+    }) else {
         tracing::info!(
             "ResourceLimit {}/{} not found when processing deletion, can be removed by other pods",
             &namespace,
@@ -226,6 +228,7 @@ async fn handle_delete_resource_limit(kubestore: KubeStore, namespace: String, r
                     &name,
                     &deletion_timestamp.0
                 );
+                after_delete(kubestore, resource.raw.clone());
             }
         } else {
             tracing::debug!(
@@ -246,7 +249,7 @@ async fn handle_delete_secret(kubestore: KubeStore, namespace: String, raw_name:
         return;
     };
 
-    let Some(resource) = kubestore
+    let Ok(Some(resource)) = kubestore
         .secrets(Some(namespace.clone()))
         .get(&name)
         .await
@@ -259,10 +262,9 @@ async fn handle_delete_secret(kubestore: KubeStore, namespace: String, raw_name:
             );
             err
         })
-        .unwrap()
     else {
         tracing::info!(
-            "ResourceLimit {}/{} not found when processing deletion, can be removed by other pods",
+            "Secret {}/{} not found when processing deletion, can be removed by other pods",
             &namespace,
             &raw_name
         );
@@ -299,7 +301,7 @@ async fn handle_delete_secret(kubestore: KubeStore, namespace: String, raw_name:
                     &deletion_timestamp.0
                 );
             }
-            tokio::spawn(after_delete(kubestore, resource.raw.clone()));
+            after_delete(kubestore, resource.raw.clone());
         } else {
             tracing::debug!(
                 "Secret {}/{} is not deletable yet, skipping deletion.",
@@ -335,7 +337,7 @@ async fn handle_delete_mcp_template(kubestore: KubeStore, namespace: String, raw
         .unwrap()
     else {
         tracing::info!(
-            "ResourceLimit {}/{} not found when processing deletion, can be removed by other pods",
+            "McpTemplate {}/{} not found when processing deletion, can be removed by other pods",
             &namespace,
             &raw_name
         );
@@ -380,6 +382,7 @@ async fn handle_delete_mcp_template(kubestore: KubeStore, namespace: String, raw
                     &name,
                     &deletion_timestamp.0
                 );
+                after_delete(kubestore, resource.raw.clone());
             }
         } else {
             tracing::debug!(
@@ -391,7 +394,7 @@ async fn handle_delete_mcp_template(kubestore: KubeStore, namespace: String, raw
     }
 }
 
-async fn after_delete<T: ResourceExt<DynamicType = ()> + Send + 'static>(
+fn after_delete<T: ResourceExt<DynamicType = ()> + Send + 'static>(
     kubestore: KubeStore,
     resource: T,
 ) {
@@ -402,45 +405,48 @@ async fn after_delete<T: ResourceExt<DynamicType = ()> + Send + 'static>(
         .labels()
         .keys()
         .filter_map(filter_relpath)
-        .for_each(|(r#type, name)| match r#type.as_str() {
-            RESOURCE_TYPE_NAMESPACE => {
-                let kubestore = kubestore.clone();
-                let namespace = name.clone();
-                tokio::spawn(async move {
-                    handle_delete_namespace(kubestore, namespace).await;
-                });
-            }
-            RESOURCE_TYPE_PREFIX_SECRET => {
-                let kubestore = kubestore.clone();
-                let namespace = namespace.clone();
-                let raw_name = encode_k8sname(RESOURCE_TYPE_PREFIX_SECRET, &name);
-                tokio::spawn(async move {
-                    handle_delete_secret(kubestore, namespace, raw_name).await;
-                });
-            }
-            RESOURCE_TYPE_MCP_TEMPLATE => {
-                let kubestore = kubestore.clone();
-                let namespace = namespace.clone();
-                let raw_name = encode_k8sname(RESOURCE_TYPE_MCP_TEMPLATE, &name);
-                tokio::spawn(async move {
-                    handle_delete_mcp_template(kubestore, namespace, raw_name).await;
-                });
-            }
-            RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT => {
-                let kubestore = kubestore.clone();
-                let namespace = kubestore.default_namespace().to_string();
-                let raw_name = encode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, &name);
-                tokio::spawn(async move {
-                    handle_delete_resource_limit(kubestore, namespace, raw_name).await;
-                });
-            }
-            _ => {
-                tracing::warn!(
-                    "Unexpected dependency type '{}' with name '{}' on Secret {}",
-                    r#type,
-                    name,
-                    resource.name_any()
-                );
+        .for_each(|(r#type, name)| {
+            tracing::debug!("Found dependency: {} {}", r#type, name);
+            match r#type.as_str() {
+                RESOURCE_TYPE_NAMESPACE => {
+                    let kubestore = kubestore.clone();
+                    let namespace = name.clone();
+                    tokio::spawn(async move {
+                        handle_delete_namespace(kubestore, namespace).await;
+                    });
+                }
+                RESOURCE_TYPE_SECRET => {
+                    let kubestore = kubestore.clone();
+                    let namespace = namespace.clone();
+                    let raw_name = encode_k8sname(RESOURCE_TYPE_PREFIX_SECRET, &name);
+                    tokio::spawn(async move {
+                        handle_delete_secret(kubestore, namespace, raw_name).await;
+                    });
+                }
+                RESOURCE_TYPE_MCP_TEMPLATE => {
+                    let kubestore = kubestore.clone();
+                    let namespace = namespace.clone();
+                    let raw_name = encode_k8sname(RESOURCE_TYPE_PREFIX_MCP_TEMPLATE, &name);
+                    tokio::spawn(async move {
+                        handle_delete_mcp_template(kubestore, namespace, raw_name).await;
+                    });
+                }
+                RESOURCE_TYPE_RESOURCE_LIMIT => {
+                    let kubestore = kubestore.clone();
+                    let namespace = kubestore.default_namespace().to_string();
+                    let raw_name = encode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, &name);
+                    tokio::spawn(async move {
+                        handle_delete_resource_limit(kubestore, namespace, raw_name).await;
+                    });
+                }
+                _ => {
+                    tracing::warn!(
+                        "Unexpected dependency type '{}' with name '{}' on Secret {}",
+                        r#type,
+                        name,
+                        resource.name_any()
+                    );
+                }
             }
         });
 }

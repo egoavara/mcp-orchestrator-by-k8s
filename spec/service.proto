@@ -14,8 +14,8 @@ service McpOrchestratorService {
   rpc ListMcpTemplates(ListMcpTemplatesRequest) returns (ListMcpTemplatesResponse);
   rpc DeleteMcpTemplate(DeleteMcpTemplateRequest) returns (DeleteMcpTemplateResponse);
   
-  rpc GetMcpServer(GetMcpServerRequest) returns (McpServerResponse);
   rpc ListMcpServers(ListMcpServersRequest) returns (ListMcpServersResponse);
+  rpc GetMcp(McpRequest) returns (McpResponse);
   
   rpc CreateNamespace(CreateNamespaceRequest) returns (NamespaceResponse);
   rpc GetNamespace(GetNamespaceRequest) returns (NamespaceResponse);

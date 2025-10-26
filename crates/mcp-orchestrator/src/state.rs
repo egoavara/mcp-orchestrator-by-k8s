@@ -1,10 +1,11 @@
-use kube::{runtime::events::Recorder, Client};
+use kube::{Client, runtime::events::Recorder};
 
-use crate::storage::store::KubeStore;
+use crate::{podmcp::PodMcp, storage::store::KubeStore};
 
 #[derive(Clone)]
 pub struct AppState {
     pub kube_client: Client,
     pub kube_store: KubeStore,
     pub kube_recorder: Recorder,
+    pub podmcp: PodMcp,
 }

@@ -1,4 +1,5 @@
 pub mod annotations;
+pub mod finalizer;
 pub mod label_query;
 pub mod labels;
 pub mod mcp_server_store;

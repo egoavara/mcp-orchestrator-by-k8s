@@ -16,14 +16,14 @@
             }
         },
         {
-            "name": "Debug executable 'backend'",
+            "name": "Debug executable 'mcp-orchestrator'",
             "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "run",
-                    "--bin=backend",
-                    "--package=backend"
+                    "--bin=mcp-orchestrator",
+                    "--package=mcp-orchestrator"
                 ]
             },
             "args": []

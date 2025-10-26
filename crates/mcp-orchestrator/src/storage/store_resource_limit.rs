@@ -12,7 +12,7 @@ use crate::storage::resource_type::{
 };
 use crate::storage::util_list::ListOption;
 use crate::storage::util_name::{decode_k8sname, encode_k8sname};
-use crate::storage::utils::{add_safe_finalizer, data_elem, parse_data_elem};
+use crate::storage::utils::{add_safe_finalizer, data_elem, del_safe_finalizer, parse_data_elem};
 use crate::{
     error::AppError,
     storage::{
@@ -118,9 +118,10 @@ impl ResourceLimitStore {
         description: &str,
         data: &v1::ResourceLimit,
     ) -> Result<ResourceLimitData, AppError> {
+        let name = encode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, name);
         let configmap = ConfigMap {
             metadata: ObjectMeta {
-                name: Some(encode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, name)),
+                name: Some(name),
                 labels: Some(
                     setup_labels(RESOURCE_TYPE_RESOURCE_LIMIT, labels)
                         .chain(label_dependency(RESOURCE_TYPE_NAMESPACE, &self.namespace))
@@ -156,18 +157,20 @@ impl ResourceLimitStore {
     }
 
     pub async fn get(&self, name: &str) -> Result<Option<ResourceLimitData>, AppError> {
+        let name = encode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, name);
         self.api()
-            .get(&encode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, name))
+            .get_opt(&name)
             .await
-            .map(|x| {
+            .map_err(AppError::from)?
+            .and_then(|x| {
                 if is_managed_label(RESOURCE_TYPE_RESOURCE_LIMIT, x.labels()) {
                     Some(x)
                 } else {
                     None
                 }
             })
-            .map_err(AppError::from)
-            .and_then(ResourceLimitData::try_from_option_config_map)
+            .map(ResourceLimitData::try_from_config_map)
+            .transpose()
     }
 
     pub async fn list(
@@ -194,32 +197,35 @@ impl ResourceLimitStore {
         name: &str,
         option: Option<DeleteOption>,
     ) -> Result<DeleteResult, AppError> {
+        let name = encode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, name);
         let api = self.api();
         let option = option.unwrap_or_default();
 
-        if !option.remove_finalizer.unwrap_or_default() {
-            add_safe_finalizer(
-                self.api(),
-                &encode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, name),
-                FINALIZER_NAME,
-                5,
-            )
-            .await?;
+        if option.remove_finalizer.unwrap_or_default() {
+            del_safe_finalizer(self.api().clone(), &name, FINALIZER_NAME, 5).await?;
+        } else {
+            add_safe_finalizer(self.api().clone(), &name, FINALIZER_NAME, 5).await?;
         }
 
         let mut result = api
-            .delete(
-                &encode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, name),
-                &DeleteParams::default(),
-            )
+            .delete(&name, &DeleteParams::default())
             .await
-            .map_err(AppError::from)?
-            .map_left(|_x| DeleteResult::Deleting)
-            .map_right(|_x| DeleteResult::Deleted)
-            .into_inner();
+            .map(|ok| {
+                ok.map_left(|_x| DeleteResult::Deleting)
+                    .map_right(|_x| DeleteResult::Deleted)
+                    .into_inner()
+            })
+            .or_else(|err| match err {
+                kube::Error::Api(ae)
+                    if ae.code == 404 && option.remove_finalizer.unwrap_or_default() =>
+                {
+                    Ok(DeleteResult::Deleted)
+                }
+                err => Err(AppError::from(err)),
+            })?;
         if let Some(wait) = option.timeout {
             result = interval_timeout(Duration::milliseconds(300), wait, || async {
-                api.get(name).await.map(|_| None).unwrap_or_else(|e| {
+                api.get(&name).await.map(|_| None).unwrap_or_else(|e| {
                     if let kube::Error::Api(ae) = e {
                         if ae.code == 404 {
                             return Some(true);
@@ -239,12 +245,13 @@ impl ResourceLimitStore {
     }
 
     pub async fn is_deletable(&self, name: &str) -> Result<bool, AppError> {
+        let raw_name = encode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, name);
         let api = Api::<ConfigMap>::namespaced(self.client.clone(), &self.namespace);
-        let Some(_config_map) = api.get_opt(name).await? else {
+        let Some(_config_map) = api.get_opt(&raw_name).await? else {
             return Ok(false);
         };
 
-        let has_dep_mcp_templates = self.has_dep_mcp_templates(name).await?;
+        let has_dep_mcp_templates = self.has_dep_mcp_templates(&name).await?;
         Ok(!has_dep_mcp_templates)
     }
 

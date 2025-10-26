@@ -182,10 +182,19 @@ impl NamespaceStore {
             .api
             .delete(name, &DeleteParams::default())
             .await
-            .map_err(AppError::from)?
-            .map_left(|_x| DeleteResult::Deleting)
-            .map_right(|_x| DeleteResult::Deleted)
-            .into_inner();
+            .map(|ok| {
+                ok.map_left(|_x| DeleteResult::Deleting)
+                    .map_right(|_x| DeleteResult::Deleted)
+                    .into_inner()
+            })
+            .or_else(|err| match err {
+                kube::Error::Api(ae)
+                    if ae.code == 404 && option.remove_finalizer.unwrap_or_default() =>
+                {
+                    Ok(DeleteResult::Deleted)
+                }
+                err => Err(AppError::from(err)),
+            })?;
         if let Some(wait) = option.timeout {
             result = interval_timeout(Duration::milliseconds(300), wait, || async {
                 self.api.get(name).await.map(|_| None).unwrap_or_else(|e| {

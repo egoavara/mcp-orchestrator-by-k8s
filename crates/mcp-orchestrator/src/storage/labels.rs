@@ -14,6 +14,8 @@ pub const LABEL_MANAGED_BY_QUERY: &str = "app.kubernetes.io/managed-by=mcp-orche
 
 pub const LABEL_TYPE_OF: &str = "mcp-orchestrator.egoavara.net/type-of";
 
+pub const LABEL_SESSION_ID: &str = "mcp-orchestrator.egoavara.net/session-id";
+
 pub const TYPE_MCP_TEMPLATE: &str = "mcp-template";
 pub const TYPE_RESOURCE_LIMIT: &str = "resource-limit";
 pub const TYPE_MCP_SERVER: &str = "mcp-server";
@@ -79,19 +81,4 @@ pub fn is_managed_label(r#typeof: &str, labels: &BTreeMap<String, String>) -> bo
         return false;
     };
     managed_type == LABEL_MANAGED_BY_VALUE && r#typeof == target_typeof
-}
-
-pub fn remove_prefix_from_labels(labels: BTreeMap<String, String>) -> BTreeMap<String, String> {
-    labels
-        .into_iter()
-        .filter_map(|(k, v)| {
-            if k == LABEL_MANAGED_BY || k == LABEL_TYPE_OF {
-                None
-            } else if let Some(stripped) = k.strip_prefix(&format!("{}/", LABEL_CUSTOM_PREFIX)) {
-                Some((stripped.to_string(), v))
-            } else {
-                Some((k, v))
-            }
-        })
-        .collect()
 }

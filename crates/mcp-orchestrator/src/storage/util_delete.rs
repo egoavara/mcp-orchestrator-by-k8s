@@ -32,7 +32,7 @@ impl DeleteOption {
         }
     }
 
-    pub fn with_force(mut self, force: bool) -> Self {
+    pub fn with_remove_finalizer(mut self, force: bool) -> Self {
         self.remove_finalizer = Some(force);
         self
     }

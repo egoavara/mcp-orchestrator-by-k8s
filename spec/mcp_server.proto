@@ -2,25 +2,21 @@ syntax = "proto3";
 
 package mcp.orchestrator.v1;
 
+import "google/protobuf/any.proto";
 import "common.proto";
-
-message GetMcpServerRequest {
-  string id = 1;
-  optional string namespace = 2;
-}
 
 message ListMcpServersRequest {
   optional string namespace = 1;
-  optional string template_id = 2;
-  map<string, string> label_selector = 3;
-  int32 page_size = 4;
-  string page_token = 5;
+  optional string mcp_template = 2;
+  LabelQuery label = 3;
+  optional int32 first = 4;
+  optional string after = 5;
 }
 
 message ListMcpServersResponse {
-  repeated McpServerResponse servers = 1;
-  string next_page_token = 2;
-  int32 total_count = 3;
+  repeated McpServerResponse data = 1;
+  optional string endCursor = 2;
+  bool hasNextPage = 3;
 }
 
 enum McpServerStatus {
@@ -31,29 +27,81 @@ enum McpServerStatus {
   MCP_SERVER_STATUS_TERMINATED = 4;
 }
 
-message ResolvedVolume {
-  string name = 1;
-  string size = 2;
-  string mount_path = 3;
-  optional string storage_class = 4;
+message McpServerResponse {
+  string namespace = 1;
+  string name = 2;
+  string template_name = 3;
+
+  McpServerStatus status = 4;
+
+  string fqdn = 5;
+
+  string host_ip = 6;
+  repeated string pod_ip = 7;
+
+  string created_at = 8;
+  optional string ready_at = 9;
+  optional string containers_ready_at = 10;
 }
 
-message McpServerResponse {
-  string id = 1;
+message McpRequest {
+  optional string namespace = 1;
   string name = 2;
-  string namespace = 3;
-  string template_id = 4;
-  McpServerStatus status = 5;
-  string image = 6;
-  repeated string command = 7;
-  repeated string args = 8;
-  map<string, string> env_vars = 9;
-  string resource_limit_name = 10;
-  repeated ResolvedVolume volumes = 11;
-  map<string, string> labels = 12;
-  optional string pod_name = 15;
-  optional string pod_ip = 16;
-  optional string node_name = 17;
-  string created_at = 18;
-  optional string deleted_at = 19;
+}
+
+message Icon {
+  string src = 1;
+  optional string mime_type = 2;
+  repeated string sizes = 3;
+}
+
+message ServerImplementation {
+  string name = 1;
+  optional string title = 2;
+  string version = 3;
+  repeated Icon icons = 4;
+  optional string website_url = 5;
+}
+
+message PromptsCapability {
+  optional bool list_changed = 1;
+}
+
+message ResourcesCapability {
+  optional bool subscribe = 1;
+  optional bool list_changed = 2;
+}
+
+message ToolsCapability {
+  optional bool list_changed = 1;
+}
+
+message ServerCapabilities {
+  map<string, google.protobuf.Any> experimental = 1;
+  map<string, google.protobuf.Any> logging = 2;
+  map<string, google.protobuf.Any> completions = 3;
+  optional PromptsCapability prompts = 4;
+  optional ResourcesCapability resources = 5;
+  optional ToolsCapability tools = 6;
+}
+
+message Tool {
+  string name = 1;
+  optional string title = 2;
+  optional string description = 3;
+  google.protobuf.Any input_schema = 4;
+  optional google.protobuf.Any output_schema = 5;
+  optional google.protobuf.Any annotations = 6;
+  repeated Icon icons = 7;
+}
+
+message McpResponse {
+  string namespace = 1;
+  string name = 2;
+
+  ServerImplementation server_info = 3;
+  ServerCapabilities capabilities = 4;
+  optional string instructions = 5;
+
+  repeated Tool tools = 6;
 }

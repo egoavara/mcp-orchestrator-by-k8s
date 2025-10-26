@@ -1,3 +1,4 @@
+use axum::response::IntoResponse;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -28,4 +29,20 @@ pub enum AppError {
 
     #[error("Protected namespace: {0}")]
     ProtectedNamespace(String),
+}
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> axum::response::Response {
+        let (status, message) = match &self {
+            AppError::NotFound(msg) => (axum::http::StatusCode::NOT_FOUND, msg.clone()),
+            AppError::Conflict(msg) => (axum::http::StatusCode::CONFLICT, msg.clone()),
+            AppError::InvalidLabelKey(msg) => (axum::http::StatusCode::BAD_REQUEST, msg.clone()),
+            AppError::ProtectedNamespace(msg) => (axum::http::StatusCode::FORBIDDEN, msg.clone()),
+            _ => (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                self.to_string(),
+            ),
+        };
+        (status, message).into_response()
+    }
 }

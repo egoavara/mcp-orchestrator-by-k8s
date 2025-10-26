@@ -1,6 +1,7 @@
 use anyhow::Context;
 use kube::runtime::events::{Recorder, Reporter};
 use proto::mcp::orchestrator::v1::mcp_orchestrator_service_server::McpOrchestratorServiceServer;
+use tokio_util::sync::CancellationToken;
 use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
@@ -9,20 +10,22 @@ mod config;
 mod error;
 mod grpc;
 mod http;
+mod podmcp;
 mod service;
 mod state;
 mod storage;
 
 use config::AppConfig;
 use grpc::GrpcService;
-use http::create_http_router;
+use http::router;
 use state::AppState;
 
-use crate::storage::store::KubeStore;
+use crate::{podmcp::PodMcp, storage::store::KubeStore};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let config = AppConfig::load().context("Failed to load configuration")?;
+    let ct = CancellationToken::new();
 
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -68,6 +71,7 @@ async fn main() -> anyhow::Result<()> {
                 instance: config.kubernetes.pod.as_ref().map(|p| p.name.clone()),
             },
         ),
+        podmcp: PodMcp::new(kube_client),
     };
 
     let grpc_service = GrpcService::new(state.clone());
@@ -82,7 +86,7 @@ async fn main() -> anyhow::Result<()> {
         .layer(tonic_web::GrpcWebLayer::new())
         .service(grpc_server);
 
-    let http_router = create_http_router().with_state(state.clone());
+    let http_router = router().with_state(state.clone());
 
     let app = http_router.fallback_service(grpc_service_with_web);
 
@@ -91,7 +95,7 @@ async fn main() -> anyhow::Result<()> {
     info!("Server listening on {} (HTTP + gRPC-Web)", addr);
 
     tokio::spawn(async {
-        service::listeners(state).await;
+        service::listeners(state, ct).await;
     });
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;

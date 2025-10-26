@@ -1,11 +1,13 @@
-pub mod handlers;
+pub mod mcp;
 
-use axum::{routing::get, Router};
+use axum::{Router, routing::get};
 
 use crate::state::AppState;
 
-pub fn create_http_router() -> Router<AppState> {
-    Router::new().route("/health", get(health_handler))
+pub fn router() -> Router<AppState> {
+    Router::new()
+        .nest("/mcp", mcp::router())
+        .route("/health", get(health_handler))
 }
 
 async fn health_handler() -> &'static str {
