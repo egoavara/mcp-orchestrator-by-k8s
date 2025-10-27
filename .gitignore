@@ -41,4 +41,5 @@ Thumbs.db
 dist/
 .trunk/
 
+dist
 image.png
