@@ -1,3 +1,3 @@
 fn main() {
-    println!("cargo:rerun-if-changed=../../spec");
+    println!("cargo:rerun-if-changed=../mcp-orchestrator-front");
 }

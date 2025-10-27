@@ -36,7 +36,9 @@ pub async fn create_mcp_template(
 ) -> Result<Response<McpTemplateResponse>, Status> {
     let req = request.into_inner();
     let store = state.kube_store.mcp_templates(req.namespace.clone());
-
+    tracing::info!("Creating MCP template: {:?}", req.name);
+    tracing::debug!("MCP template request: {:?}", req);
+    
     let mt = store
         .create(
             &req.name,

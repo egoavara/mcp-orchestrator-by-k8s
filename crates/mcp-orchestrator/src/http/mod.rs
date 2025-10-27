@@ -1,4 +1,5 @@
 pub mod mcp;
+pub mod statics;
 
 use axum::{Router, routing::get};
 

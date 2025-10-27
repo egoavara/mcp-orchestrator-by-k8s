@@ -89,7 +89,7 @@ pub(crate) fn sse_stream_response(
 
 pub(crate) const fn internal_error_response<E: Display>(
     context: &str,
-) -> impl FnOnce(E) -> Response<BoxBody<Bytes, Infallible>> {
+) -> impl FnOnce(E) -> Response<BoxBody<Bytes, Infallible>> + use<'_, E> {
     move |error| {
         tracing::error!("Internal server error when {context}: {error}");
         Response::builder()

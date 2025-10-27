@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/mcp-orchestrator-front",
     "crates/proto",
+    "crates/proto-web",
     "crates/mcp-orchestrator",
 ]
 

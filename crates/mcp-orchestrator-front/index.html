@@ -1,21 +1,12 @@
 <!DOCTYPE html>
-<html lang="ko">
-
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>mcp-orchestrator</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Orchestrator</title>
+    <link data-trunk rel="css" href="styles.css">
 </head>
-
 <body>
-  <script type="module">
-    import init from "/static/frontend.js";
-
-    const wasmUrl = "/static/frontend_bg.wasm";
-    init(wasmUrl).catch((err) => console.error("WASM 초기화 실패", err));
-  </script>
-
+    <div id="app"></div>
 </body>
-
 </html>

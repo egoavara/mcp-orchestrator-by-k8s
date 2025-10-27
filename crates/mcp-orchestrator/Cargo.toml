@@ -55,11 +55,13 @@ figment = { workspace = true }
 clap = { workspace = true }
 dotenvy = { workspace = true }
 
-proto = { path = "../proto" }
-
 uuid = { workspace = true }
 
 rmcp = { workspace = true }
+include_dir = { workspace = true }
+
+proto = { path = "../proto" }
+mcp-orchestrator-front = { path = "../mcp-orchestrator-front" }
 
 [dev-dependencies]
 rstest = "0.22"
