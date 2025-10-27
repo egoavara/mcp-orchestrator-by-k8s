@@ -29,13 +29,10 @@ impl Default for UserPreferences {
 }
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum Theme {
     Light,
+    #[default]
     Dark,
 }
 
-impl Default for Theme {
-    fn default() -> Self {
-        Theme::Dark
-    }
-}

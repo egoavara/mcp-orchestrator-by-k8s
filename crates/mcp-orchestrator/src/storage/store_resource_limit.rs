@@ -5,7 +5,7 @@ use super::label_query::LabelQuery;
 use super::labels::setup_labels;
 use crate::storage::annotations::{ANNOTATION_DESCRIPTION, annotation_description};
 use crate::storage::label_query::build_label_query;
-use crate::storage::labels::{label_dependency, label_dependency_query, label_dependency_tuple};
+use crate::storage::labels::{label_dependency, label_dependency_query};
 use crate::storage::resource_type::{
     RESOURCE_TYPE_MCP_TEMPLATE, RESOURCE_TYPE_NAMESPACE, RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT,
     RESOURCE_TYPE_RESOURCE_LIMIT,
@@ -87,14 +87,6 @@ impl ResourceLimitData {
             deleted_at: cm.meta().deletion_timestamp.clone().map(|x| x.0),
             raw: cm,
         })
-    }
-
-    fn try_from_option_config_map(cm_opt: Option<ConfigMap>) -> Result<Option<Self>, AppError> {
-        if let Some(cm) = cm_opt {
-            Ok(Some(Self::try_from_config_map(cm)?))
-        } else {
-            Ok(None)
-        }
     }
 
     pub fn to_resource_requirements(&self) -> ResourceRequirements {
@@ -298,7 +290,7 @@ impl ResourceLimitStore {
             return Ok(false);
         };
 
-        let has_dep_mcp_templates = self.has_dep_mcp_templates(&name).await?;
+        let has_dep_mcp_templates = self.has_dep_mcp_templates(name).await?;
         Ok(!has_dep_mcp_templates)
     }
 

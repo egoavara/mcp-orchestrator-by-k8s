@@ -1,10 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use chrono::{DateTime, Duration, Utc};
-use k8s_openapi::{
-    api::core::v1::{ConfigMap, Container, EnvVar, ObjectReference, Pod, PodSpec, Secret},
-    apimachinery::pkg::apis::meta::v1::OwnerReference,
-};
+use k8s_openapi::api::core::v1::{ConfigMap, Container, EnvVar, Pod, PodSpec};
 use kube::{
     Api, Client, Resource, ResourceExt,
     api::{DeleteParams, ListParams, ObjectMeta, PostParams},
@@ -18,7 +15,6 @@ use crate::{
     error::AppError,
     storage::{
         ResourceLimitStore, SecretData, SecretStore,
-        finalizer::FINALIZER_MCP_SERVER,
         labels::{
             LABEL_SESSION_ID, is_managed_label, label_dependency, label_dependency_query,
             label_dependency_tuple,
@@ -27,7 +23,6 @@ use crate::{
             RESOURCE_TYPE_MCP_SERVER, RESOURCE_TYPE_MCP_TEMPLATE, RESOURCE_TYPE_NAMESPACE,
             RESOURCE_TYPE_PREFIX_MCP_TEMPLATE, RESOURCE_TYPE_RESOURCE_LIMIT, RESOURCE_TYPE_SECRET,
         },
-        resource_uname::resource_relpath,
         store::KubeStore,
         util_delete::{DeleteOption, DeleteResult},
         util_list::ListOption,
@@ -89,7 +84,7 @@ impl McpTemplateData {
         let mut envs: HashMap<String, String> = HashMap::new();
         if let Some(data) = &cm.data {
             for (key, value) in data.iter() {
-                let Some(key) = parse_env_var(&key) else {
+                let Some(key) = parse_env_var(key) else {
                     continue;
                 };
                 envs.insert(key, value.clone());
@@ -129,14 +124,6 @@ impl McpTemplateData {
         })
     }
 
-    fn try_from_option_config_map(cm_opt: Option<ConfigMap>) -> Result<Option<Self>, AppError> {
-        if let Some(cm) = cm_opt {
-            Ok(Some(Self::try_from_config_map(cm)?))
-        } else {
-            Ok(None)
-        }
-    }
-
     async fn load_secrets(
         store: SecretStore,
         names: &Vec<String>,
@@ -147,7 +134,7 @@ impl McpTemplateData {
             if secrets.contains_key(name) {
                 continue;
             }
-            let Some(secret) = store.get(name).await.map_err(AppError::from)? else {
+            let Some(secret) = store.get(name).await? else {
                 return Err(AppError::Internal(format!(
                     "Secret {} not found for McpTemplate",
                     name
@@ -160,7 +147,7 @@ impl McpTemplateData {
             if secrets.contains_key(name) {
                 continue;
             }
-            let Some(secret) = store.get(name).await.map_err(AppError::from)? else {
+            let Some(secret) = store.get(name).await? else {
                 return Err(AppError::Internal(format!(
                     "Secret {} not found for McpTemplate",
                     name

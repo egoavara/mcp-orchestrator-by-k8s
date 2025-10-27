@@ -27,10 +27,10 @@ pub fn template_form() -> Html {
     let submit_error = use_state(|| Option::<String>::None);
     let navigator = use_navigator().unwrap();
     
-    let resource_limits = use_state(|| Vec::<ResourceLimit>::new());
+    let resource_limits = use_state(Vec::<ResourceLimit>::new);
     let is_loading_limits = use_state(|| true);
     
-    let secrets = use_state(|| Vec::<Secret>::new());
+    let secrets = use_state(Vec::<Secret>::new);
     let is_loading_secrets = use_state(|| true);
     
     // Load resource limits
@@ -163,7 +163,7 @@ pub fn template_form() -> Html {
         })
     };
 
-    let env_items = use_state(|| Vec::<(usize, String, String)>::new());
+    let env_items = use_state(Vec::<(usize, String, String)>::new);
     let env_counter = use_state(|| 0usize);
 
     let on_add_env = {
@@ -312,7 +312,7 @@ pub fn template_form() -> Html {
             }
             
             is_submitting.set(true);
-            let errors = errors.clone();
+            let _errors = errors.clone();
             let is_submitting = is_submitting.clone();
             let submit_error = submit_error.clone();
             let navigator = navigator.clone();

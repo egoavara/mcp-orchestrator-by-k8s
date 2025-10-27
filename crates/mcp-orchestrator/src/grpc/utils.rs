@@ -1,6 +1,4 @@
-use std::collections::BTreeMap;
-
-use crate::storage::{label_query::LabelQuery, labels::label_filter};
+use crate::storage::label_query::LabelQuery;
 use proto::mcp::orchestrator::v1::{self, LabelKeyValue, LabelKeyValues};
 
 pub fn convert_label_query(label: v1::LabelQuery) -> Vec<LabelQuery> {
@@ -24,16 +22,4 @@ pub fn convert_label_query(label: v1::LabelQuery) -> Vec<LabelQuery> {
         queries.push(LabelQuery::NotIn { key, values });
     }
     queries
-}
-
-pub fn convert_label(
-    labels: Option<BTreeMap<String, String>>,
-) -> std::collections::HashMap<String, String> {
-    if let Some(labels) = labels {
-        return labels
-            .into_iter()
-            .filter_map(label_filter)
-            .collect::<std::collections::HashMap<String, String>>();
-    }
-    Default::default()
 }

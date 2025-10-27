@@ -1,4 +1,3 @@
-pub const ANNOTATION_PREFIX: &str = "mcp-orchestrator.egoavara.net";
 pub const ANNOTATION_DESCRIPTION: &str = "mcp-orchestrator.egoavara.net/description";
 pub const ANNOTATION_LAST_ACCESS_AT: &str = "mcp-orchestrator.egoavara.net/last-access-at";
 

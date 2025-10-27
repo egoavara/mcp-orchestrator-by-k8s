@@ -30,7 +30,7 @@ pub fn interval_handler<H>(
         loop {
             tokio::select! {
                 _ = handler(&state) => {
-                    tokio::time::sleep(dur.clone()).await;
+                    tokio::time::sleep(dur).await;
                 }
                 _ = ct.cancelled() => {
                     break;

@@ -38,7 +38,7 @@ pub async fn create_mcp_template(
     let store = state.kube_store.mcp_templates(req.namespace.clone());
     tracing::info!("Creating MCP template: {:?}", req.name);
     tracing::debug!("MCP template request: {:?}", req);
-    
+
     let mt = store
         .create(
             &req.name,
@@ -116,7 +116,6 @@ pub async fn delete_mcp_template(
         .await
         .map_err(|e| match e {
             AppError::NotFound(msg) => Status::not_found(msg),
-            AppError::Conflict(msg) => Status::failed_precondition(msg),
             _ => Status::internal(format!("Failed to delete resource limit: {}", e)),
         })?;
 

@@ -1,4 +1,3 @@
-use chrono::TimeDelta;
 use clap::Parser;
 use figment::{
     Figment,
@@ -178,9 +177,6 @@ fn default_log_level() -> String {
 
 fn default_kube_namespace() -> String {
     "mcp-servers".to_string()
-}
-fn default_pod_name() -> String {
-    format!("unknown-{}", uuid::Uuid::new_v4().as_simple())
 }
 
 impl Default for ServerConfig {

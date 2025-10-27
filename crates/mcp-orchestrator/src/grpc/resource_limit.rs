@@ -1,4 +1,3 @@
-use kube::ResourceExt;
 use proto::mcp::orchestrator::v1::*;
 use tonic::{Request, Response, Status};
 
@@ -96,7 +95,6 @@ pub async fn delete_resource_limit(
         .await
         .map_err(|e| match e {
             AppError::NotFound(msg) => Status::not_found(msg),
-            AppError::Conflict(msg) => Status::failed_precondition(msg),
             _ => Status::internal(format!("Failed to delete resource limit: {}", e)),
         })?;
 

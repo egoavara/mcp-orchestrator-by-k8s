@@ -1,41 +1,23 @@
 use std::{collections::HashMap, sync::Arc};
 
-use chrono::Utc;
 use futures::Stream;
-use k8s_openapi::api::core::v1::{Pod, PodTemplate};
+use k8s_openapi::api::core::v1::Pod;
 use kube::{
-    Api, Client,
-    api::{DeleteParams, Patch, PatchParams, PostParams},
+    Api,
+    api::{DeleteParams, PostParams},
 };
 use rmcp::{
-    RoleClient,
-    model::{
-        ClientJsonRpcMessage, ClientNotification, ClientRequest, Extensions,
-        InitializeRequestParam, InitializedNotification, JsonRpcNotification, JsonRpcRequest,
-        JsonRpcVersion2_0, ServerJsonRpcMessage,
-    },
-    serve_server,
-    service::{serve_directly, serve_directly_with_ct},
+    model::{ClientJsonRpcMessage, ServerJsonRpcMessage},
     transport::{
-        Transport, WorkerTransport,
         common::server_side_http::{ServerSseMessage, session_id},
-        streamable_http_server::{
-            SessionId, SessionManager,
-            session::local::{
-                LocalSessionHandle, LocalSessionManagerError, LocalSessionWorker, SessionConfig,
-                create_local_session,
-            },
-        },
-        worker,
+        streamable_http_server::SessionId,
     },
 };
-use serde_json::json;
 use tokio::sync::RwLock;
-use tokio_stream::wrappers::ReceiverStream;
 
 use crate::{
     podmcp::{McpPodError, PodMcpTransport},
-    storage::{McpTemplateData, McpTemplateStore, store::KubeStore},
+    storage::{McpTemplateData, store::KubeStore},
 };
 
 #[derive(Clone)]
@@ -63,10 +45,6 @@ impl PodMcp {
         )
     }
 
-    pub async fn get_transport(&self, session_id: &SessionId) -> Option<PodMcpTransport> {
-        let transports = self.0.transports.read().await;
-        transports.get(session_id).cloned()
-    }
     pub(crate) async fn remove_transport(&self, session_id: &SessionId) {
         let mut transports = self.0.transports.write().await;
         transports.remove(session_id);

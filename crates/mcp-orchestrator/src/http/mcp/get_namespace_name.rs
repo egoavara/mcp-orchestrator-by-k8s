@@ -1,28 +1,16 @@
-use std::{convert::Infallible, fmt::Display, sync::Arc};
+use std::fmt::Display;
 
 use axum::{
     body::Bytes,
     extract::{Path, Request, State},
     http,
     http::Response,
-    response::IntoResponse,
 };
 use http_body::Body;
-use http_body_util::{BodyExt, Full, combinators::BoxBody};
-use rmcp::{
-    service::serve_client_with_ct,
-    transport::{
-        StreamableHttpServerConfig, StreamableHttpService,
-        common::http_header::{EVENT_STREAM_MIME_TYPE, HEADER_LAST_EVENT_ID, HEADER_SESSION_ID},
-        streamable_http_server::session::local::LocalSessionManager,
-    },
-};
-use tonic::IntoRequest;
+use http_body_util::{BodyExt, Full};
+use rmcp::transport::common::http_header::{EVENT_STREAM_MIME_TYPE, HEADER_LAST_EVENT_ID, HEADER_SESSION_ID};
 
-use crate::{
-    http::mcp::utils::{BoxResponse, sse_stream_response},
-    podmcp::PodMcpSessionManager,
-};
+use crate::http::mcp::utils::{BoxResponse, sse_stream_response};
 use crate::{
     http::mcp::utils::{get_session_manager, internal_error_response},
     state::AppState,
@@ -95,7 +83,7 @@ where
             .map_err(internal_error_response("resume session"))?;
         Ok(sse_stream_response(
             stream,
-            state.config.mcp.keep_alive.clone(),
+            state.config.mcp.keep_alive,
         ))
     } else {
         // create standalone stream
@@ -105,7 +93,7 @@ where
             .map_err(internal_error_response("create standalone stream"))?;
         Ok(sse_stream_response(
             stream,
-            state.config.mcp.keep_alive.clone(),
+            state.config.mcp.keep_alive,
         ))
     }
 }

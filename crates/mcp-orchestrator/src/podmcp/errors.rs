@@ -1,4 +1,3 @@
-use axum::response::IntoResponse;
 use rmcp::{
     service::ClientInitializeError,
     transport::streamable_http_server::session::local::{EventIdParseError, SessionError},
@@ -26,17 +25,11 @@ pub enum McpPodError {
     #[error(transparent)]
     ClientInitializeError(#[from] ClientInitializeError),
 
-    #[error("Failed to map pod")]
-    MapFailed,
-
     #[error("Pod not found: {session_id}")]
     PodNotFound { session_id: String },
 
     #[error("Session not found: {session_id}")]
     SessionNotFound { session_id: String },
-
-    #[error("Session duplicate: {session_id}")]
-    SessionDuplicate { session_id: String },
 
     #[error("Pod {session_id} has no stdin attached")]
     NoStdin { session_id: String },
@@ -49,7 +42,4 @@ pub enum McpPodError {
 
     #[error("Failed to send message to pod")]
     SendTransportError,
-
-    #[error("Invalid initialization message")]
-    InvalidInitializationMessage
 }

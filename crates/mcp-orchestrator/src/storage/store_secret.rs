@@ -17,7 +17,6 @@ use crate::{
             RESOURCE_TYPE_MCP_TEMPLATE, RESOURCE_TYPE_NAMESPACE, RESOURCE_TYPE_PREFIX_SECRET,
             RESOURCE_TYPE_SECRET,
         },
-        resource_uname::resource_fullpath,
         util_delete::{DeleteOption, DeleteResult},
         util_list::ListOption,
         util_name::{decode_k8sname, encode_k8sname},
@@ -61,18 +60,6 @@ impl SecretData {
             deleted_at: secret.meta().deletion_timestamp.clone().map(|x| x.0),
             raw: secret,
         })
-    }
-
-    fn try_from_option_secret(cm_opt: Option<Secret>) -> Result<Option<Self>, AppError> {
-        if let Some(cm) = cm_opt {
-            Ok(Some(Self::try_from_secret(cm)?))
-        } else {
-            Ok(None)
-        }
-    }
-
-    pub fn fullpath(&self) -> String {
-        resource_fullpath(RESOURCE_TYPE_SECRET, &self.namespace, &self.name)
     }
 }
 
@@ -222,7 +209,7 @@ impl SecretStore {
             return Ok(false);
         };
 
-        let has_dep_mcp_templates = self.has_dep_mcp_templates(&name).await?;
+        let has_dep_mcp_templates = self.has_dep_mcp_templates(name).await?;
         Ok(!has_dep_mcp_templates)
     }
 

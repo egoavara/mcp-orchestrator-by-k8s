@@ -14,6 +14,4 @@ pub use loading::*;
 pub use error_message::*;
 pub use confirm_dialog::*;
 pub use form_field::*;
-pub use resource_list::*;
-pub use resource_card::*;
 pub use namespace_selector::*;

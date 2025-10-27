@@ -1,25 +1,13 @@
-use std::{convert::Infallible, sync::Arc};
 
 use axum::{
     body::{Body, Bytes},
     extract::{Path, Request, State},
     http::{self, Response},
-    response::IntoResponse,
 };
-use http_body_util::{BodyExt, Full, combinators::BoxBody};
-use rmcp::{
-    service::serve_client_with_ct,
-    transport::{
-        StreamableHttpServerConfig, StreamableHttpService, common::http_header::HEADER_SESSION_ID,
-        streamable_http_server::session::local::LocalSessionManager,
-    },
-};
-use tonic::IntoRequest;
+use http_body_util::{BodyExt, Full};
+use rmcp::transport::common::http_header::HEADER_SESSION_ID;
 
-use crate::{
-    http::mcp::utils::{BoxResponse, get_session_manager},
-    podmcp::PodMcpSessionManager,
-};
+use crate::http::mcp::utils::{BoxResponse, get_session_manager};
 use crate::{
     http::mcp::utils::{accepted_response, internal_error_response},
     state::AppState,

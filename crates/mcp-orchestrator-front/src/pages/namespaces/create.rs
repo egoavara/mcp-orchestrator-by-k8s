@@ -108,7 +108,7 @@ pub fn namespace_create() -> Html {
             }
             
             is_submitting.set(true);
-            let errors = errors.clone();
+            let _errors = errors.clone();
             let is_submitting = is_submitting.clone();
             let submit_error = submit_error.clone();
             let navigator = navigator.clone();

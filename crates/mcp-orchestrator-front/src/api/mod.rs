@@ -4,4 +4,3 @@ pub mod namespaces;
 pub mod secrets;
 pub mod resource_limits;
 
-pub use client::*;

@@ -6,7 +6,7 @@ use crate::api::namespaces::list_namespaces;
 #[function_component(NamespaceSelector)]
 pub fn namespace_selector() -> Html {
     let (state, dispatch) = use_store::<SessionState>();
-    let namespaces = use_state(|| Vec::<Namespace>::new());
+    let namespaces = use_state(Vec::<Namespace>::new);
     let is_loading = use_state(|| true);
     
     {

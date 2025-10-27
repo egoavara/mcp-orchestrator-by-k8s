@@ -4,13 +4,12 @@ use std::{convert::Infallible, fmt::Display, sync::Arc, time::Duration};
 use axum::http;
 use axum::http::Response;
 use bytes::{Buf, Bytes};
-use chrono::format;
 use http_body::Body;
 use http_body_util::{BodyExt, Empty, Full, combinators::BoxBody};
 use sse_stream::{KeepAlive, Sse, SseBody};
 
 use rmcp::{
-    model::{ClientJsonRpcMessage, ServerJsonRpcMessage},
+    model::ClientJsonRpcMessage,
     transport::common::{http_header::EVENT_STREAM_MIME_TYPE, server_side_http::ServerSseMessage},
 };
 
@@ -152,7 +151,7 @@ pub(crate) async fn get_session_manager(
     let Some(mcp_template) = state
         .kube_store
         .mcp_templates(Some(namespace.to_string()))
-        .get(&name)
+        .get(name)
         .await
         .map_err(internal_error_response("Failed to get MCP template"))?
     else {

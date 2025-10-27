@@ -67,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
     let state = AppState {
         kube_store: KubeStore::new(kube_client.clone(), &config.kubernetes.namespace),
         kube_client: kube_client.clone(),
-        kube_recorder: Recorder::new(
+        _kube_recorder: Recorder::new(
             kube_client.clone(),
             Reporter {
                 controller: "mcp-orchestrator".to_string(),

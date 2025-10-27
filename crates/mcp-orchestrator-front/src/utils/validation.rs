@@ -48,10 +48,10 @@ pub fn validate_cpu(cpu: &str) -> Option<String> {
     }
     
     if cpu.ends_with('m') {
-        if let Ok(_) = cpu[..cpu.len()-1].parse::<u32>() {
+        if cpu[..cpu.len()-1].parse::<u32>().is_ok() {
             return None;
         }
-    } else if let Ok(_) = cpu.parse::<f64>() {
+    } else if cpu.parse::<f64>().is_ok() {
         return None;
     }
     
@@ -64,11 +64,10 @@ pub fn validate_memory(memory: &str) -> Option<String> {
     }
     
     for suffix in &["Ki", "Mi", "Gi", "Ti"] {
-        if memory.ends_with(suffix) {
-            if let Ok(_) = memory[..memory.len()-2].parse::<u64>() {
+        if memory.ends_with(suffix)
+            && memory[..memory.len()-2].parse::<u64>().is_ok() {
                 return None;
             }
-        }
     }
     
     Some("Invalid memory format (e.g., '512Mi', '4Gi')".to_string())

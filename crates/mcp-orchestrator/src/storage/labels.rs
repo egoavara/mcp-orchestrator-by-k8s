@@ -5,9 +5,7 @@ use crate::{
     storage::{label_query::LabelQuery, resource_uname::resource_relpath},
 };
 
-pub const LABEL_PREFIX: &str = "mcp-orchestrator.egoavara.net";
 pub const LABEL_CUSTOM_PREFIX: &str = "custom.mcp-orchestrator.egoavara.net";
-
 
 pub const LABEL_MANAGED_BY: &str = "app.kubernetes.io/managed-by";
 pub const LABEL_MANAGED_BY_VALUE: &str = "mcp-orchestrator";
@@ -16,10 +14,6 @@ pub const LABEL_MANAGED_BY_QUERY: &str = "app.kubernetes.io/managed-by=mcp-orche
 pub const LABEL_TYPE_OF: &str = "mcp-orchestrator.egoavara.net/type-of";
 
 pub const LABEL_SESSION_ID: &str = "mcp-orchestrator.egoavara.net/session-id";
-
-pub const TYPE_MCP_TEMPLATE: &str = "mcp-template";
-pub const TYPE_RESOURCE_LIMIT: &str = "resource-limit";
-pub const TYPE_MCP_SERVER: &str = "mcp-server";
 
 lazy_static::lazy_static! {
     pub static ref LABEL_REGEX: regex::Regex = regex::Regex::new(r"^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])/(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$")
@@ -48,14 +42,6 @@ pub fn label_fullpath(key: &str) -> Result<String, AppError> {
         Ok(key.to_string())
     } else {
         Err(AppError::InvalidLabelKey(key.to_string()))
-    }
-}
-pub fn label_filter<A: AsRef<str>, B: AsRef<str>>(keyval: (A, B)) -> Option<(A, B)> {
-    let (key, value) = keyval;
-    if LABEL_REGEX.is_match(key.as_ref()) {
-        Some((key, value))
-    } else {
-        None
     }
 }
 
