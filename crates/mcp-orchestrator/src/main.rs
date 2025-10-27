@@ -16,6 +16,7 @@ mod podmcp;
 mod service;
 mod state;
 mod storage;
+mod assets;
 
 use config::AppConfig;
 use grpc::GrpcService;
@@ -96,7 +97,7 @@ async fn main() -> anyhow::Result<()> {
     let http_router = router().with_state(state.clone());
 
     let grpc_with_reflection = axum::Router::new()
-        .route_service("/{*path}", 
+        .route_service("/mcp.orchestrator.v1.McpOrchestratorService/{*path}", 
             ServiceBuilder::new()
                 .layer(tonic_web::GrpcWebLayer::new())
                 .service(grpc_server))
@@ -105,7 +106,9 @@ async fn main() -> anyhow::Result<()> {
                 .layer(tonic_web::GrpcWebLayer::new())
                 .service(reflection_service));
 
-    let app = http_router.fallback_service(grpc_with_reflection);
+    let app = http_router
+        .merge(grpc_with_reflection)
+        .fallback(http::fallback::handler);
 
     let addr = format!("{}:{}", config.server.host, config.server.port);
 

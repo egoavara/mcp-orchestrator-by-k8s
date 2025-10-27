@@ -96,8 +96,19 @@ fn build_frontend_wasm(workspace_dir: &Path, frontend_dir: &Path) {
         .generate(&dist_dir)
         .expect("wasm-bindgen 변환에 실패했습니다");
 
-    copy_static(frontend_dir.join("index.html"), dist_dir.join("index.html"));
+    copy_and_fix_html(frontend_dir.join("index.html"), dist_dir.join("index.html"));
     copy_static(frontend_dir.join("styles.css"), dist_dir.join("styles.css"));
+}
+
+fn copy_and_fix_html(from: PathBuf, to: PathBuf) {
+    let content = fs::read_to_string(&from)
+        .unwrap_or_else(|err| panic!("Failed to read {}: {}", from.display(), err));
+    
+    let fixed_content = content
+        .replace(r#"<link data-trunk rel="css" href="/statics/styles.css">"#, r#"<link rel="stylesheet" href="/statics/styles.css">"#);
+    
+    fs::write(&to, fixed_content)
+        .unwrap_or_else(|err| panic!("Failed to write {}: {}", to.display(), err));
 }
 
 fn copy_static(from: PathBuf, to: PathBuf) {
