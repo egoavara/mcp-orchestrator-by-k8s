@@ -1,0 +1,69 @@
+[package]
+name = "mcp-orchestrator"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "mcp-orchestrator"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
+futures = { workspace = true }
+
+pin-project-lite = { workspace = true }
+bytes = { workspace = true }
+
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+http-body = { workspace = true }
+http-body-util = { workspace = true }
+sse-stream = { workspace = true }
+mime_guess = { workspace = true }
+
+tonic = { workspace = true }
+tonic-web = { workspace = true }
+tonic-prost = { workspace = true }
+tonic-reflection = { workspace = true }
+prost = { workspace = true }
+prost-wkt = { workspace = true }
+prost-wkt-types = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+json-patch = { workspace = true }
+
+chrono = { workspace = true }
+humantime = { workspace = true }
+humantime-serde = { workspace = true }
+
+regex = { workspace = true }
+lazy_static = { workspace = true }
+
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+kube = { workspace = true }
+k8s-openapi = { workspace = true }
+
+figment = { workspace = true }
+clap = { workspace = true }
+dotenvy = { workspace = true }
+
+uuid = { workspace = true }
+
+rmcp = { workspace = true }
+include_dir = { workspace = true }
+
+proto = { path = "../proto" }
+mcp-orchestrator-front = { path = "../mcp-orchestrator-front" }
+
+[dev-dependencies]
+rstest = "0.22"
+tokio-test = "0.4"

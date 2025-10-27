@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package mcp.orchestrator.v1;
+
+message VolumeMount {
+  string pattern = 1;
+  string mount_path = 2;
+}
+
+message SecretMount {
+  string name = 1;
+  string mount_path = 2;
+}
+
+message VolumeLimit {
+  string size = 1;
+  optional string storage_class = 2;
+}
+
+message ResourceLimit {
+  string cpu = 1;
+  string memory = 2;
+  optional string cpu_limit = 3;
+  optional string memory_limit = 4;
+  optional string ephemeral_storage = 5;
+  map<string, VolumeLimit> volumes = 6;
+}
+
+enum SecretUpdateStrategy {
+  SECRET_UPDATE_STRATEGY_UNSPECIFIED = 0;
+  SECRET_UPDATE_STRATEGY_REPLACE = 1;
+  SECRET_UPDATE_STRATEGY_MERGE = 2;
+  SECRET_UPDATE_STRATEGY_PATCH = 3;
+}
+
+message LabelQuery {
+  repeated LabelKeyValue equal = 1;
+  repeated LabelKeyValue not_equal = 2;
+  repeated LabelKeyValues in = 3;
+  repeated LabelKeyValues not_in = 4;
+  repeated string contain_key = 5;
+  repeated string not_contain_key = 6;
+}
+
+message LabelKeyValue{
+  string key = 1;
+  string value = 2;
+}
+
+message LabelKeyValues{
+  string key = 1;
+  repeated string values = 2;
+}

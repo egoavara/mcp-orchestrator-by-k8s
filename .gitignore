@@ -28,9 +28,6 @@ target
 # Logs
 *.log
 
-# VS Code
-.vscode/
-
 # OS specific
 .DS_Store
 Thumbs.db
@@ -39,3 +36,10 @@ Thumbs.db
 
 # Rust profiling
 *.prof*
+
+# Frontend (Yew/WASM) build artifacts
+dist/
+.trunk/
+
+dist
+image.png

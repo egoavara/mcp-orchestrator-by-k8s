@@ -1,0 +1,18 @@
+[package]
+name = "proto"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+prost = { workspace = true }
+prost-wkt = { workspace = true }
+prost-wkt-types = { workspace = true }
+
+tonic = { workspace = true }
+tonic-prost = { workspace = true }
+
+serde = { workspace = true }
+
+[build-dependencies]
+tonic-prost-build = { workspace = true }
+prost-wkt-build = { workspace = true }

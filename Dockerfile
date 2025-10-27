@@ -3,12 +3,12 @@
 #
 # Build arguments:
 #   TARGETPLATFORM: Target platform (auto-provided by Docker Buildx)
-#   TARGET_BINARY:  Binary to build (default: backend)
+#   TARGET_BINARY:  Binary to build (default: mcp-orchestrator)
 #   RUST_VERSION:   Rust compiler version (default: 1.86)
 #
 # Usage:
 #   docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 \
-#     --build-arg TARGET_BINARY=backend -t myimage:latest .
+#     --build-arg TARGET_BINARY=mcp-orchestrator -t myimage:latest .
 
 # ============================================================================
 # Stage 1: Planner - Generate dependency recipe
@@ -47,12 +47,14 @@ RUN cd crates/frontend && \
 # ============================================================================
 FROM --platform=$BUILDPLATFORM rust:1.86-bookworm AS builder
 
-# Install cargo-chef (cached layer)
-RUN cargo install cargo-chef --version 0.1.67 --locked
-
 # Build arguments
 ARG TARGETPLATFORM
 ARG RUST_VERSION=1.86
+ARG TARGET_BINARY=mcp-orchestrator
+
+# Install cargo-chef (cached layer)
+RUN cargo install cargo-chef --version 0.1.67 --locked
+
 
 WORKDIR /app
 
@@ -99,8 +101,6 @@ RUN export RUST_TARGET=$(cat /rust_target.txt) && \
 COPY . .
 
 # Build application binary
-ARG TARGET_BINARY=backend
-
 RUN export RUST_TARGET=$(cat /rust_target.txt) && \
     case "$RUST_TARGET" in \
       "aarch64-unknown-linux-gnu") \
@@ -119,6 +119,9 @@ RUN export RUST_TARGET=$(cat /rust_target.txt) && \
 # ============================================================================
 FROM debian:bookworm-slim AS runtime
 
+# Build arguments
+ARG TARGET_BINARY=mcp-orchestrator
+
 # Install runtime dependencies
 # - ca-certificates: TLS/HTTPS support (required for Redis TLS, external APIs)
 # - tini: Proper PID 1 init system for signal handling and zombie reaping
@@ -127,12 +130,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tini \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy binary from builder stage
-ARG TARGET_BINARY=backend
-COPY --from=builder /app/backend /usr/local/bin/mcp-orchestrator
+COPY --from=builder /app/$TARGET_BINARY /usr/local/bin/$TARGET_BINARY
 
 # Set executable permissions
-RUN chmod +x /usr/local/bin/mcp-orchestrator
+RUN chmod +x /usr/local/bin/$TARGET_BINARY
 
 # OCI image labels for metadata
 # See: https://github.com/opencontainers/image-spec/blob/main/annotations.md

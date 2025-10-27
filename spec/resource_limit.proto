@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package mcp.orchestrator.v1;
+
+import "common.proto";
+
+message CreateResourceLimitRequest {
+  string name = 1;
+  string description = 3;
+  ResourceLimit limits = 6;
+  map<string, string> labels = 5;
+}
+
+message GetResourceLimitRequest {
+  string name = 1;
+}
+
+message ListResourceLimitsRequest {
+  LabelQuery label = 1;
+  optional int32 first = 2;
+  optional string after = 3;
+}
+
+message ListResourceLimitsResponse {
+  repeated ResourceLimitResponse data = 1;
+  optional string endCursor = 2;
+  bool hasNextPage = 3;
+}
+
+message DeleteResourceLimitRequest {
+  string name = 1;
+  bool force = 2;
+}
+
+message DeleteResourceLimitResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ResourceLimitResponse {
+  string name = 1;
+  string description = 3;
+  ResourceLimit limits = 4;
+  map<string, string> labels = 5;
+  string created_at = 6;
+  optional string deleted_at = 7;
+}

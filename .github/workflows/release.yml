@@ -190,6 +190,16 @@ jobs:
         if: matrix.zig_install
         uses: mlugg/setup-zig@v2
 
+      - name: Install protobuf compiler
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+        shell: bash
+
+      - name: Install protobuf compiler (Windows)
+        if: runner.os == 'Windows'
+        run: choco install protoc
+        shell: pwsh
+
       - name: Install cross-linker if needed
         if: matrix.needs_linker_install
         run: ${{ matrix.linker_install_cmd }}

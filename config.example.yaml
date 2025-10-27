@@ -1,0 +1,20 @@
+# MCP Orchestrator Configuration Example
+# Priority: config file < environment variables < CLI arguments
+
+server:
+  # Server bind address
+  host: "0.0.0.0"
+  
+  # Server bind port
+  port: 3000
+  
+  # Log level: trace, debug, info, warn, error
+  log_level: "info"
+
+kubernetes:
+  # Default namespace for MCP server deployments
+  namespace: "mcp-servers"
+  
+  # Kubernetes context to use (optional)
+  # If not set, uses current context from kubeconfig
+  # context: "my-cluster"

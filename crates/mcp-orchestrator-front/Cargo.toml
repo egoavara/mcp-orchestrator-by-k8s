@@ -1,0 +1,45 @@
+[package]
+name = "mcp-orchestrator-front"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+base64 = { workspace = true }
+
+yew = { version = "0.21", features = ["csr"] }
+yew-router = "0.18"
+yewdux = "0.11"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+gloo-net = "0.4"
+gloo-timers = "0.3"
+wasm-logger = "0.2"
+log = "0.4"
+web-sys = { version = "0.3", features = [
+    "HtmlInputElement",
+    "HtmlSelectElement",
+    "HtmlTextAreaElement",
+    "InputEvent",
+    "SubmitEvent",
+    "EventTarget",
+    "History",
+    "Location",
+    "Window",
+    "Storage",
+    "Navigator",
+    "Clipboard",
+] }
+
+tonic-web-wasm-client = "0.8"
+proto-web = { path = "../proto-web" }
+prost = { workspace = true }
+bytes = { workspace = true }
+
+[build-dependencies]
+wasm-bindgen-cli-support = "0.2"

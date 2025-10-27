@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package mcp.orchestrator.v1;
+
+import "common.proto";
+
+message CreateNamespaceRequest {
+  string name = 1;
+  map<string, string> labels = 2;
+}
+
+message GetNamespaceRequest {
+  string name = 1;
+}
+
+message ListNamespacesRequest {
+  LabelQuery label = 1;
+  optional int32 first = 3;
+  optional string after = 4;
+}
+
+message ListNamespacesResponse {
+  repeated NamespaceResponse data = 1;
+  optional string endCursor = 2;
+  bool hasNextPage = 3;
+}
+
+message DeleteNamespaceRequest {
+  string name = 1;
+}
+
+message DeleteNamespaceResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message NamespaceResponse {
+  string name = 1;
+  map<string, string> labels = 2;
+  string created_at = 3;
+  optional string deleted_at = 4;
+}
