@@ -15,11 +15,16 @@
 # Purpose: Analyzes Cargo.toml and generates a dependency graph (recipe.json)
 #          This enables Docker layer caching for dependencies
 # ============================================================================
-FROM rust:1.86-bookworm AS planner
+FROM rust:1.90-bookworm AS planner
 WORKDIR /app
 
+# Install protobuf compiler
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install cargo-chef (cached layer)
-RUN cargo install cargo-chef --version 0.1.67 --locked
+RUN cargo install cargo-chef --locked
 
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
@@ -28,7 +33,7 @@ RUN cargo chef prepare --recipe-path recipe.json
 # Stage 2: Frontend Builder - Build frontend assets
 # Purpose: Build frontend dist directory before backend compilation
 # ============================================================================
-FROM --platform=$BUILDPLATFORM rust:1.86-bookworm AS frontend-builder
+FROM --platform=$BUILDPLATFORM rust:1.90-bookworm AS frontend-builder
 
 WORKDIR /app
 
@@ -45,15 +50,20 @@ RUN cd crates/frontend && \
 # Purpose: Sets up cross-compilation environment and builds the Rust binary
 #          for the target platform (amd64, arm64, or armv7)
 # ============================================================================
-FROM --platform=$BUILDPLATFORM rust:1.86-bookworm AS builder
+FROM --platform=$BUILDPLATFORM rust:1.90-bookworm AS builder
 
 # Build arguments
 ARG TARGETPLATFORM
-ARG RUST_VERSION=1.86
+ARG RUST_VERSION=1.90
 ARG TARGET_BINARY=mcp-orchestrator
 
+# Install protobuf compiler
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install cargo-chef (cached layer)
-RUN cargo install cargo-chef --version 0.1.67 --locked
+RUN cargo install cargo-chef --locked
 
 
 WORKDIR /app

@@ -37,7 +37,7 @@ on:
 
 env:
   ASSET_NAME: mcp-orchestrator
-  BINARY_PATH: backend
+  BINARY_PATH: mcp-orchestrator
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name || github.event.release.tag_name }}
 
 jobs:
@@ -76,7 +76,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ env.RELEASE_TAG }}
 
@@ -181,7 +181,7 @@ jobs:
       - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: "1.86.0"
+          toolchain: "1.90.0"
           cache-key: "rust-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}"
           target: ${{ matrix.target }}
           rustflags: ${{ matrix.rustflags }}
