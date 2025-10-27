@@ -8,6 +8,7 @@ use crate::{
 pub const LABEL_PREFIX: &str = "mcp-orchestrator.egoavara.net";
 pub const LABEL_CUSTOM_PREFIX: &str = "custom.mcp-orchestrator.egoavara.net";
 
+
 pub const LABEL_MANAGED_BY: &str = "app.kubernetes.io/managed-by";
 pub const LABEL_MANAGED_BY_VALUE: &str = "mcp-orchestrator";
 pub const LABEL_MANAGED_BY_QUERY: &str = "app.kubernetes.io/managed-by=mcp-orchestrator";

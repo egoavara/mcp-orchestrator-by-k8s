@@ -4,6 +4,8 @@ use rmcp::{
     transport::streamable_http_server::session::local::{EventIdParseError, SessionError},
 };
 
+use crate::error::AppError;
+
 #[derive(Debug, thiserror::Error)]
 pub enum McpPodError {
     #[error(transparent)]
@@ -14,6 +16,9 @@ pub enum McpPodError {
 
     #[error(transparent)]
     SessionError(#[from] SessionError),
+
+    #[error(transparent)]
+    AppError(#[from] AppError),
 
     #[error(transparent)]
     EventIdParseError(#[from] EventIdParseError),
@@ -41,4 +46,10 @@ pub enum McpPodError {
 
     #[error("Pod {session_id} is not ready yet")]
     NoConnection { session_id: String },
+
+    #[error("Failed to send message to pod")]
+    SendTransportError,
+
+    #[error("Invalid initialization message")]
+    InvalidInitializationMessage
 }

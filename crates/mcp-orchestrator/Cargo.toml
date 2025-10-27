@@ -13,11 +13,15 @@ tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 futures = { workspace = true }
 
+pin-project-lite = { workspace = true }
+bytes = { workspace = true }
+
 axum = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true }
 http-body = { workspace = true }
 http-body-util = { workspace = true }
+sse-stream = { workspace = true }
 
 tonic = { workspace = true }
 tonic-web = { workspace = true }
@@ -32,6 +36,7 @@ json-patch = { workspace = true }
 
 chrono = { workspace = true }
 humantime = { workspace = true }
+humantime-serde = { workspace = true }
 
 regex = { workspace = true }
 lazy_static = { workspace = true }

@@ -1,7 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use chrono::{DateTime, Duration, Utc};
-use k8s_openapi::api::core::v1::{ConfigMap, Container, Pod, PodSpec};
+use k8s_openapi::{
+    api::core::v1::{ConfigMap, Container, EnvVar, ObjectReference, Pod, PodSpec, Secret},
+    apimachinery::pkg::apis::meta::v1::OwnerReference,
+};
 use kube::{
     Api, Client, Resource, ResourceExt,
     api::{DeleteParams, ListParams, ObjectMeta, PostParams},
@@ -14,7 +17,7 @@ use super::labels::setup_labels;
 use crate::{
     error::AppError,
     storage::{
-        ResourceLimitStore, SecretStore,
+        ResourceLimitStore, SecretData, SecretStore,
         finalizer::FINALIZER_MCP_SERVER,
         labels::{
             LABEL_SESSION_ID, is_managed_label, label_dependency, label_dependency_query,
@@ -25,6 +28,7 @@ use crate::{
             RESOURCE_TYPE_PREFIX_MCP_TEMPLATE, RESOURCE_TYPE_RESOURCE_LIMIT, RESOURCE_TYPE_SECRET,
         },
         resource_uname::resource_relpath,
+        store::KubeStore,
         util_delete::{DeleteOption, DeleteResult},
         util_list::ListOption,
         util_name::{decode_k8sname, encode_k8sname},
@@ -133,23 +137,114 @@ impl McpTemplateData {
         }
     }
 
-    pub fn to_pod(&self, session_id: &SessionId) -> Pod {
-        Pod {
+    async fn load_secrets(
+        store: SecretStore,
+        names: &Vec<String>,
+        mounts: &Vec<v1::SecretMount>,
+    ) -> Result<HashMap<String, SecretData>, AppError> {
+        let mut secrets: HashMap<String, SecretData> = HashMap::new();
+        for name in names {
+            if secrets.contains_key(name) {
+                continue;
+            }
+            let Some(secret) = store.get(name).await.map_err(AppError::from)? else {
+                return Err(AppError::Internal(format!(
+                    "Secret {} not found for McpTemplate",
+                    name
+                )));
+            };
+            secrets.insert(name.clone(), secret);
+        }
+        for mount in mounts {
+            let name = &mount.name;
+            if secrets.contains_key(name) {
+                continue;
+            }
+            let Some(secret) = store.get(name).await.map_err(AppError::from)? else {
+                return Err(AppError::Internal(format!(
+                    "Secret {} not found for McpTemplate",
+                    name
+                )));
+            };
+            secrets.insert(name.clone(), secret);
+        }
+        Ok(secrets)
+    }
+
+    pub async fn to_pod(
+        &self,
+        session_id: &SessionId,
+        client: &KubeStore,
+    ) -> Result<Pod, AppError> {
+        let resource_limit_store = client.resource_limits();
+        let Some(resource_limit) = resource_limit_store.get(&self.resource_limit_name).await?
+        else {
+            tracing::error!("ResourceLimit {} not found", self.resource_limit_name);
+            return Err(AppError::Internal(format!(
+                "ResourceLimit {} required by McpTemplate {}/{} not found",
+                self.resource_limit_name, self.namespace, self.name
+            )));
+        };
+        let secrets = McpTemplateData::load_secrets(
+            client.secrets(Some(self.namespace.clone())),
+            &self.secret_envs,
+            &self.secret_mounts,
+        )
+        .await?;
+
+        let mut envs = HashMap::new();
+
+        for (key, value) in self.envs.iter() {
+            envs.insert(
+                key.clone(),
+                EnvVar {
+                    name: key.clone(),
+                    value: Some(value.clone()),
+                    ..Default::default()
+                },
+            );
+        }
+        for secret_name in self.secret_envs.iter() {
+            let secret = secrets.get(secret_name).ok_or_else(|| {
+                AppError::Internal(format!(
+                    "Secret {} not found for McpTemplate {}/{}",
+                    secret_name, self.namespace, self.name
+                ))
+            })?;
+            for (key, _) in secret.raw.data.as_ref().unwrap_or(&BTreeMap::new()).iter() {
+                envs.insert(
+                    key.clone(),
+                    EnvVar {
+                        name: key.clone(),
+                        value_from: Some(k8s_openapi::api::core::v1::EnvVarSource {
+                            secret_key_ref: Some(k8s_openapi::api::core::v1::SecretKeySelector {
+                                name: secret.raw.name_any(),
+                                key: key.clone(),
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    },
+                );
+            }
+        }
+
+        let envs = envs.into_values().collect();
+        let requirement = resource_limit.to_resource_requirements();
+        tracing::debug!(
+            "Creating Pod for session {} with resource limit {:?}",
+            session_id,
+            requirement
+        );
+
+        Ok(Pod {
             metadata: ObjectMeta {
                 name: Some(session_id.to_string()),
                 namespace: Some(self.namespace.clone()),
                 labels: Some(
-                    self.labels
-                        .iter()
-                        .map(|(k, v)| (k.clone(), v.clone()))
-                        .chain(vec![
-                            (LABEL_SESSION_ID.to_string(), session_id.to_string()),
-                            label_dependency_tuple(RESOURCE_TYPE_MCP_TEMPLATE, &self.name),
-                            label_dependency_tuple(
-                                RESOURCE_TYPE_RESOURCE_LIMIT,
-                                &self.resource_limit_name,
-                            ),
-                        ])
+                    setup_labels(RESOURCE_TYPE_MCP_SERVER, std::iter::empty())
+                        .chain(vec![(LABEL_SESSION_ID.to_string(), session_id.to_string())])
                         .collect(),
                 ),
                 owner_references: Some(vec![self.raw.controller_owner_ref(&()).unwrap()]),
@@ -163,13 +258,14 @@ impl McpTemplateData {
                     args: Some(self.args.clone()),
                     stdin: Some(true),
                     tty: Some(false),
-                    // env: Some(self.envs.clone()),
+                    env: Some(envs),
+                    resources: Some(requirement),
                     ..Default::default()
                 }],
                 ..Default::default()
             }),
             ..Default::default()
-        }
+        })
     }
 }
 
@@ -215,7 +311,6 @@ impl McpTemplateStore {
     ) -> Result<McpTemplateData, AppError> {
         let name = encode_k8sname(RESOURCE_TYPE_PREFIX_MCP_TEMPLATE, name);
         let api = self.api();
-        let secret_store = SecretStore::new(self.client.clone(), self.target_namespace.clone());
         let resource_limit_store =
             ResourceLimitStore::new(self.client.clone(), self.default_namespace.clone());
 
@@ -228,35 +323,12 @@ impl McpTemplateStore {
                     data.resource_limit_name, self.target_namespace, name
                 ))
             })?;
-
-        let secret_names = data
-            .secret_envs
-            .iter()
-            .map(|s| s.clone())
-            .chain(data.secret_mounts.iter().map(|s| s.name.clone()))
-            .collect::<Vec<String>>();
-
-        let secrets = futures::future::join_all(
-            secret_names
-                .iter()
-                .map(|secret_name| secret_store.get(&secret_name)),
+        let secrets = McpTemplateData::load_secrets(
+            SecretStore::new(self.client.clone(), self.target_namespace.clone()),
+            &data.secret_envs,
+            &data.secret_mounts,
         )
-        .await
-        .into_iter()
-        .collect::<Result<Vec<_>, AppError>>()?
-        .into_iter()
-        .flatten()
-        .map(|x| (x.name.clone(), x))
-        .collect::<HashMap<_, _>>();
-
-        for secret_name in secret_names {
-            if !secrets.contains_key(&secret_name) {
-                return Err(AppError::NotFound(format!(
-                    "Secret not found ({})",
-                    resource_relpath(RESOURCE_TYPE_SECRET, &secret_name),
-                )));
-            }
-        }
+        .await?;
 
         let configmap = ConfigMap {
             metadata: ObjectMeta {

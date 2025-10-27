@@ -22,7 +22,8 @@ use crate::{
     },
 };
 use chrono::{DateTime, Duration, Utc};
-use k8s_openapi::api::core::v1::ConfigMap;
+use k8s_openapi::api::core::v1::{ConfigMap, ResourceRequirements};
+use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use kube::Resource;
 use kube::{
     Api, Client, ResourceExt,
@@ -93,6 +94,52 @@ impl ResourceLimitData {
             Ok(Some(Self::try_from_config_map(cm)?))
         } else {
             Ok(None)
+        }
+    }
+
+    pub fn to_resource_requirements(&self) -> ResourceRequirements {
+        ResourceRequirements {
+            requests: Some(
+                [
+                    Some(("cpu".to_string(), Quantity(self.limits.cpu.clone()))),
+                    Some(("memory".to_string(), Quantity(self.limits.memory.clone()))),
+                    self.limits
+                        .ephemeral_storage
+                        .as_ref()
+                        .map(|v| ("ephemeral-storage".to_string(), Quantity(v.to_string()))),
+                ]
+                .into_iter()
+                .flatten()
+                .collect(),
+            ),
+            limits: Some(
+                [
+                    Some((
+                        "cpu".to_string(),
+                        Quantity(
+                            self.limits
+                                .cpu_limit
+                                .as_ref()
+                                .cloned()
+                                .unwrap_or(self.limits.cpu.clone()),
+                        ),
+                    )),
+                    Some((
+                        "memory".to_string(),
+                        Quantity(
+                            self.limits
+                                .memory_limit
+                                .as_ref()
+                                .cloned()
+                                .unwrap_or(self.limits.memory.clone()),
+                        ),
+                    )),
+                ]
+                .into_iter()
+                .flatten()
+                .collect(),
+            ),
+            ..Default::default()
         }
     }
 }

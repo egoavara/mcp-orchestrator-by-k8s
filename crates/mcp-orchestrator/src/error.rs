@@ -29,6 +29,9 @@ pub enum AppError {
 
     #[error("Protected namespace: {0}")]
     ProtectedNamespace(String),
+
+    #[error("MCP Template not found: {namespace}/{name}")]
+    NotFoundMcpTemplate { namespace: String, name: String },
 }
 
 impl IntoResponse for AppError {

@@ -76,9 +76,21 @@ pub async fn check_orphan_session(state: &AppState) {
 fn is_pod_orphan(now: &DateTime<Utc>, pod: &Pod) -> bool {
     // Placeholder logic for determining if a pod is orphaned
     // In a real implementation, this would check for associated sessions or resources
-    let Some(last_access_raw) = pod.labels().get(ANNOTATION_LAST_ACCESS_AT) else {
+    if let Some(creation_timestamp) = &pod.metadata.creation_timestamp {
+        let creation_time = creation_timestamp.0.with_timezone(&Utc);
+        let duration_since_creation = now.signed_duration_since(creation_time);
+        if duration_since_creation.num_minutes() < 1 {
+            tracing::debug!(
+                "Pod {} is recently created ({}), not treating as orphan",
+                pod.name_any(),
+                duration_since_creation
+            );
+            return false;
+        }
+    }
+    let Some(last_access_raw) = pod.annotations().get(ANNOTATION_LAST_ACCESS_AT) else {
         tracing::warn!(
-            "Pod {} is missing last access label, treating as orphan",
+            "Pod {} is missing last access annotation, treating as orphan",
             pod.name_any()
         );
         return true;
@@ -93,7 +105,7 @@ fn is_pod_orphan(now: &DateTime<Utc>, pod: &Pod) -> bool {
     };
     let last_access = last_access.with_timezone(&Utc);
     let duration_since_access = now.signed_duration_since(last_access);
-    if duration_since_access.num_minutes() > 30 {
+    if duration_since_access.num_seconds() > 15 {
         return true;
     }
     return false;

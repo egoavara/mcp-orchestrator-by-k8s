@@ -1,12 +1,20 @@
-use axum::{Router, routing::any};
+use axum::{
+    Router,
+    routing::{any, get},
+};
 
-mod any_namespace_name;
+mod delete_namespace_name;
+mod get_namespace_name;
+mod post_namespace_name;
+pub(crate) mod utils;
 
 use crate::state::AppState;
 
 pub fn router() -> Router<AppState> {
     Router::new().route(
         "/{namespace}/{name}",
-        any(any_namespace_name::handler_namespace_name),
+        get(get_namespace_name::handler)
+            .post(post_namespace_name::handler)
+            .delete(delete_namespace_name::handler),
     )
 }

@@ -1,10 +1,11 @@
+use chrono::TimeDelta;
 use clap::Parser;
 use figment::{
     Figment,
     providers::{Env, Format, Serialized, Yaml},
 };
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 #[derive(Debug, Clone, Parser)]
 #[command(name = "mcp-orchestrator")]
@@ -142,6 +143,12 @@ pub struct PodConfig {
     pub name: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpConfig {
+    #[serde(with = "humantime_serde", default = "default_keep_alive")]
+    pub keep_alive: Option<Duration>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AppConfig {
     #[serde(default)]
@@ -149,8 +156,14 @@ pub struct AppConfig {
 
     #[serde(default)]
     pub kubernetes: KubernetesConfig,
+
+    #[serde(default)]
+    pub mcp: McpConfig,
 }
 
+fn default_keep_alive() -> Option<Duration> {
+    Some(std::time::Duration::from_secs(30))
+}
 fn default_host() -> String {
     "0.0.0.0".to_string()
 }
@@ -186,6 +199,14 @@ impl Default for KubernetesConfig {
             namespace: default_kube_namespace(),
             context: None,
             pod: None,
+        }
+    }
+}
+
+impl Default for McpConfig {
+    fn default() -> Self {
+        Self {
+            keep_alive: default_keep_alive(),
         }
     }
 }

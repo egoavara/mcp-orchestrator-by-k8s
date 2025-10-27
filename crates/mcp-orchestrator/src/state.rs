@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use kube::{Client, runtime::events::Recorder};
 
-use crate::{podmcp::PodMcp, storage::store::KubeStore};
+use crate::{config::AppConfig, podmcp::PodMcp, storage::store::KubeStore};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -8,4 +10,5 @@ pub struct AppState {
     pub kube_store: KubeStore,
     pub kube_recorder: Recorder,
     pub podmcp: PodMcp,
+    pub config: Arc<AppConfig>,
 }

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Context;
 use kube::runtime::events::{Recorder, Reporter};
 use proto::mcp::orchestrator::v1::mcp_orchestrator_service_server::McpOrchestratorServiceServer;
@@ -71,7 +73,11 @@ async fn main() -> anyhow::Result<()> {
                 instance: config.kubernetes.pod.as_ref().map(|p| p.name.clone()),
             },
         ),
-        podmcp: PodMcp::new(kube_client),
+        podmcp: PodMcp::new(KubeStore::new(
+            kube_client.clone(),
+            &config.kubernetes.namespace,
+        )),
+        config: Arc::new(config.clone()),
     };
 
     let grpc_service = GrpcService::new(state.clone());

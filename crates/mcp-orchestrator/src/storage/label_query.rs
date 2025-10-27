@@ -49,7 +49,7 @@ pub fn build_label_query(r#typeof: &str, queries: &[LabelQuery]) -> Result<Strin
         .collect::<Result<Vec<_>, _>>()
         .map(|x| {
             let query = x.join(",");
-            tracing::debug!("Built label query: {}", query);
+            tracing::trace!("Built label query: {}", query);
             query
         })
 }
