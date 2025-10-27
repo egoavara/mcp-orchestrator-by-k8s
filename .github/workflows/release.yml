@@ -37,7 +37,7 @@ on:
 
 env:
   ASSET_NAME: mcp-orchestrator
-  BINARY_PATH: backend
+  BINARY_PATH: mcp-orchestrator
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name || github.event.release.tag_name }}
 
 jobs:
