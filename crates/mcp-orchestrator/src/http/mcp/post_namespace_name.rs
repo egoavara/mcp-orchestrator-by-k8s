@@ -1,39 +1,26 @@
-use std::{convert::Infallible, sync::Arc};
 
 use axum::{
     body::{Body, Bytes},
     extract::{Path, Request, State},
     http::{self, Response},
-    response::IntoResponse,
 };
-use futures::future::ok;
-use http_body_util::{BodyExt, Full, combinators::BoxBody};
+use http_body_util::{BodyExt, Full};
 use rmcp::{
     model::{ClientJsonRpcMessage, ClientRequest, GetExtensions},
-    service::serve_client_with_ct,
-    transport::{
-        StreamableHttpServerConfig, StreamableHttpService,
-        common::{
+    transport::common::{
             http_header::{EVENT_STREAM_MIME_TYPE, HEADER_SESSION_ID, JSON_MIME_TYPE},
             server_side_http::ServerSseMessage,
         },
-        streamable_http_server::session::local::LocalSessionManager,
-    },
 };
-use tonic::IntoRequest;
 
 use crate::{
-    error::AppError,
     http::mcp::utils::{BoxResponse, get_session_manager},
     state::AppState,
 };
-use crate::{
-    http::mcp::utils::{
+use crate::http::mcp::utils::{
         accepted_response, expect_json, internal_error_response, sse_stream_response,
         unexpected_message_response,
-    },
-    podmcp::PodMcpSessionManager,
-};
+    };
 
 pub async fn handler(
     State(state): State<AppState>,
@@ -121,7 +108,7 @@ pub async fn handler(
                     .map_err(internal_error_response("get session"))?;
                 Ok(sse_stream_response(
                     stream,
-                    state.config.mcp.keep_alive.clone(),
+                    state.config.mcp.keep_alive,
                 ))
             }
             ClientJsonRpcMessage::Notification(_)
@@ -163,7 +150,7 @@ pub async fn handler(
                     }
                 }
             }),
-            state.config.mcp.keep_alive.clone(),
+            state.config.mcp.keep_alive,
         );
 
         response.headers_mut().insert(

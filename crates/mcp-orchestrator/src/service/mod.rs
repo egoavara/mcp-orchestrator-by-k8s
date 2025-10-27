@@ -1,10 +1,10 @@
 use chrono::Duration;
-use futures::{FutureExt, TryFutureExt, TryStreamExt};
+use futures::TryStreamExt;
 use k8s_openapi::api::core::v1::{ConfigMap, Namespace, Secret};
 use kube::{
     Api, Resource, ResourceExt,
     runtime::{
-        WatchStreamExt, metadata_watcher,
+        metadata_watcher,
         watcher::{Config, Event},
     },
 };
@@ -18,7 +18,6 @@ use crate::{
     state::AppState,
     storage::{
         label_query::build_label_query,
-        labels::LABEL_MANAGED_BY_QUERY,
         resource_type::{
             RESOURCE_TYPE_MCP_TEMPLATE, RESOURCE_TYPE_NAMESPACE, RESOURCE_TYPE_PREFIX_MCP_TEMPLATE,
             RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, RESOURCE_TYPE_PREFIX_SECRET,

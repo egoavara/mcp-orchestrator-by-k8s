@@ -38,7 +38,7 @@ pub async fn check_orphan_session(state: &AppState) {
                 tracing::info!("Found orphan MCP server pod: {}", p.name_any());
                 let namespace = p.namespace().unwrap_or_else(|| "default".to_string());
                 let name = p.name_any();
-                orphans.entry(namespace).or_insert_with(Vec::new).push(name);
+                orphans.entry(namespace).or_default().push(name);
             }
         }
 
@@ -47,7 +47,7 @@ pub async fn check_orphan_session(state: &AppState) {
                 "MCP server pod list is paginated, remaining count is {}",
                 pods.metadata.remaining_item_count.unwrap_or(0)
             );
-            list_params = list_params.continue_token(&continue_token);
+            list_params = list_params.continue_token(continue_token);
         } else {
             break;
         }
@@ -95,7 +95,7 @@ fn is_pod_orphan(now: &DateTime<Utc>, pod: &Pod) -> bool {
         );
         return true;
     };
-    let Ok(last_access) = DateTime::parse_from_rfc3339(&last_access_raw) else {
+    let Ok(last_access) = DateTime::parse_from_rfc3339(last_access_raw) else {
         tracing::warn!(
             "Pod {} has invalid last access label (value = {}), treating as orphan",
             pod.name_any(),
@@ -108,5 +108,5 @@ fn is_pod_orphan(now: &DateTime<Utc>, pod: &Pod) -> bool {
     if duration_since_access.num_seconds() > 15 {
         return true;
     }
-    return false;
+    false
 }

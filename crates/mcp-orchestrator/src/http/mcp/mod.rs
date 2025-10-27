@@ -1,6 +1,6 @@
 use axum::{
     Router,
-    routing::{any, get},
+    routing::get,
 };
 
 mod delete_namespace_name;

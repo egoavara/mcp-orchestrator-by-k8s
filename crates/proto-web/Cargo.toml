@@ -1,0 +1,17 @@
+[package]
+name = "proto-web"
+edition.workspace = true
+version.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+prost = { workspace = true }
+prost-wkt = { workspace = true }
+prost-wkt-types = { workspace = true }
+serde = { workspace = true }
+
+[build-dependencies]
+prost-build = "0.14"
+prost-wkt-build = { workspace = true }

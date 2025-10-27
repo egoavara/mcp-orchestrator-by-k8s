@@ -16,6 +16,7 @@ mod podmcp;
 mod service;
 mod state;
 mod storage;
+mod assets;
 
 use config::AppConfig;
 use grpc::GrpcService;
@@ -66,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
     let state = AppState {
         kube_store: KubeStore::new(kube_client.clone(), &config.kubernetes.namespace),
         kube_client: kube_client.clone(),
-        kube_recorder: Recorder::new(
+        _kube_recorder: Recorder::new(
             kube_client.clone(),
             Reporter {
                 controller: "mcp-orchestrator".to_string(),
@@ -83,18 +84,31 @@ async fn main() -> anyhow::Result<()> {
     let grpc_service = GrpcService::new(state.clone());
     let grpc_server = McpOrchestratorServiceServer::new(grpc_service);
 
+    let reflection_service = tonic_reflection::server::Builder::configure()
+        .register_encoded_file_descriptor_set(proto::FILE_DESCRIPTOR_SET)
+        .build_v1()
+        .context("Failed to build reflection service")?;
+
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_headers(Any)
         .allow_methods(Any);
 
-    let grpc_service_with_web = ServiceBuilder::new()
-        .layer(tonic_web::GrpcWebLayer::new())
-        .service(grpc_server);
-
     let http_router = router().with_state(state.clone());
 
-    let app = http_router.fallback_service(grpc_service_with_web);
+    let grpc_with_reflection = axum::Router::new()
+        .route_service("/mcp.orchestrator.v1.McpOrchestratorService/{*path}", 
+            ServiceBuilder::new()
+                .layer(tonic_web::GrpcWebLayer::new())
+                .service(grpc_server))
+        .route_service("/grpc.reflection.v1.ServerReflection/{*path}",
+            ServiceBuilder::new()
+                .layer(tonic_web::GrpcWebLayer::new())
+                .service(reflection_service));
+
+    let app = http_router
+        .merge(grpc_with_reflection)
+        .fallback(http::fallback::handler);
 
     let addr = format!("{}:{}", config.server.host, config.server.port);
 

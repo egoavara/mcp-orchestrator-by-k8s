@@ -19,21 +19,12 @@ impl KubeStore {
         }
     }
 
-    pub fn as_ref_client(&self) -> &Client {
-        &self.client
-    }
-
     pub fn to_client(&self) -> Client {
         self.client.clone()
     }
 
     pub fn default_namespace(&self) -> &str {
         &self.default_namespace
-    }
-
-    pub fn api_pod(&self, namespace: Option<String>) -> kube::Api<k8s_openapi::api::core::v1::Pod> {
-        let ns = namespace.unwrap_or_else(|| self.default_namespace.clone());
-        kube::Api::<k8s_openapi::api::core::v1::Pod>::namespaced(self.client.clone(), &ns)
     }
 
     pub fn namespaces(&self) -> NamespaceStore {

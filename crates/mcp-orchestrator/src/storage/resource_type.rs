@@ -7,5 +7,3 @@ pub const RESOURCE_TYPE_MCP_SERVER: &str = "mcp-server";
 pub const RESOURCE_TYPE_PREFIX_SECRET: &str = "sc";
 pub const RESOURCE_TYPE_PREFIX_MCP_TEMPLATE: &str = "mt";
 pub const RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT: &str = "rl";
-pub const RESOURCE_TYPE_PREFIX_MCP_SERVER: &str = "ms";
-

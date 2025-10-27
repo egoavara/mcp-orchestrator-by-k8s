@@ -1,11 +1,7 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
 use chrono::Duration;
-use kube::{
-    ResourceExt,
-    api::PatchParams,
-    runtime::reflector::Lookup,
-};
+use kube::{ResourceExt, api::PatchParams};
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::json;
 use tokio::time::sleep;
@@ -120,7 +116,11 @@ async fn safe_finalizer_inner<
     )))
 }
 
-pub async fn interval_timeout<A, R: std::future::Future<Output = Option<A>> + Send, F: Fn() -> R>(
+pub async fn interval_timeout<
+    A,
+    R: std::future::Future<Output = Option<A>> + Send,
+    F: Fn() -> R,
+>(
     duration: Duration,
     max_duration: Duration,
     f: F,
@@ -137,18 +137,6 @@ pub async fn interval_timeout<A, R: std::future::Future<Output = Option<A>> + Se
     })
     .await;
     timeout.ok()
-}
-
-pub fn prepare_data<S: Serialize>(
-    key: &str,
-    data: &S,
-) -> Result<BTreeMap<String, String>, AppError> {
-    let mut map = std::collections::BTreeMap::new();
-    map.insert(
-        key.to_string(),
-        serde_json::to_string(data).map_err(AppError::SerializationError)?,
-    );
-    Ok(map)
 }
 
 pub fn data_elem<S: Serialize>(key: &str, data: &S) -> Result<(String, String), AppError> {

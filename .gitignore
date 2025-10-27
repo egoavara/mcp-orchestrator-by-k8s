@@ -36,3 +36,9 @@ Thumbs.db
 
 # Rust profiling
 *.prof*
+
+# Frontend (Yew/WASM) build artifacts
+dist/
+.trunk/
+
+image.png

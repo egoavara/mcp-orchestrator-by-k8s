@@ -22,10 +22,12 @@ tower-http = { workspace = true }
 http-body = { workspace = true }
 http-body-util = { workspace = true }
 sse-stream = { workspace = true }
+mime_guess = { workspace = true }
 
 tonic = { workspace = true }
 tonic-web = { workspace = true }
 tonic-prost = { workspace = true }
+tonic-reflection = { workspace = true }
 prost = { workspace = true }
 prost-wkt = { workspace = true }
 prost-wkt-types = { workspace = true }
@@ -54,11 +56,13 @@ figment = { workspace = true }
 clap = { workspace = true }
 dotenvy = { workspace = true }
 
-proto = { path = "../proto" }
-
 uuid = { workspace = true }
 
 rmcp = { workspace = true }
+include_dir = { workspace = true }
+
+proto = { path = "../proto" }
+mcp-orchestrator-front = { path = "../mcp-orchestrator-front" }
 
 [dev-dependencies]
 rstest = "0.22"

@@ -8,7 +8,7 @@ use crate::{config::AppConfig, podmcp::PodMcp, storage::store::KubeStore};
 pub struct AppState {
     pub kube_client: Client,
     pub kube_store: KubeStore,
-    pub kube_recorder: Recorder,
+    pub _kube_recorder: Recorder,
     pub podmcp: PodMcp,
     pub config: Arc<AppConfig>,
 }

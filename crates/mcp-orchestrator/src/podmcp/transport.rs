@@ -1,4 +1,4 @@
-use chrono::{Date, DateTime, Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use futures::{Stream, StreamExt};
 use k8s_openapi::api::core::v1::Pod;
 use kube::{
@@ -6,57 +6,27 @@ use kube::{
     api::{AttachParams, AttachedProcess, Patch, PatchParams},
 };
 use rmcp::{
-    RoleClient, RoleServer,
-    model::{
-        ClientJsonRpcMessage, ClientNotification, ClientRequest, InitializeRequest,
-        InitializeRequestParam, InitializeResultMethod, InitializedNotification,
-        InitializedNotificationMethod, JsonRpcNotification, JsonRpcRequest, JsonRpcVersion2_0,
-        Notification, NotificationNoParam, NumberOrString, ProtocolVersion, Request,
-        ServerJsonRpcMessage,
-    },
-    serve_client,
-    service::{
-        RunningService, RxJsonRpcMessage, ServiceRole, TxJsonRpcMessage, serve_directly,
-        serve_directly_with_ct,
-    },
+    RoleServer,
+    model::{ClientJsonRpcMessage, ServerJsonRpcMessage},
+    service::RxJsonRpcMessage,
     transport::{
-        IntoTransport, Transport,
-        async_rw::AsyncRwTransport,
-        common::server_side_http::ServerSseMessage,
-        streamable_http_server::{SessionId, session::never::NeverTransport},
+        IntoTransport, Transport, async_rw::AsyncRwTransport,
+        common::server_side_http::ServerSseMessage, streamable_http_server::SessionId,
     },
 };
 use serde_json::json;
-use std::{
-    cell::Cell,
-    convert::Infallible,
-    future::Future,
-    sync::{Arc, Once},
-};
-use tokio::{
-    sync::{
-        Mutex,
-        broadcast::{self, error::RecvError},
-        mpsc, oneshot,
-    },
-    time::timeout,
+use std::sync::Arc;
+use tokio::sync::{
+    Mutex,
+    broadcast::{self, error::RecvError},
+    mpsc,
 };
 use tokio_stream::wrappers::BroadcastStream;
 
 use crate::{
-    config::Cli,
     podmcp::{McpPodError, PodMcp},
     storage::{annotations::ANNOTATION_LAST_ACCESS_AT, store::KubeStore},
 };
-
-type BoxAsyncWrite = Box<dyn tokio::io::AsyncWrite + Unpin + Send>;
-type BoxAsyncRead = Box<dyn tokio::io::AsyncRead + Unpin + Send>;
-
-#[derive(Clone)]
-enum TransportCommand {
-    Send(RxJsonRpcMessage<RoleServer>),
-    Close,
-}
 
 #[derive(Clone)]
 pub struct PodMcpTransport {
@@ -179,7 +149,7 @@ impl PodMcpTransport {
                         session_id,
                         current
                     );
-                    api.patch(&session_id, &PatchParams::default(), &patch)
+                    api.patch(session_id, &PatchParams::default(), &patch)
                         .await
                         .map(|_| ())
                         .map_err(McpPodError::from)
