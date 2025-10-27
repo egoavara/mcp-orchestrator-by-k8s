@@ -14,6 +14,8 @@ grpcurl -plaintext -import-path ./spec -proto service.proto -d '{"name":"test-ns
 grpcurl -plaintext -import-path ./spec -proto service.proto -d '{"name":"test-ns"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/DeleteNamespace
 grpcurl -plaintext -import-path ./spec -proto service.proto -d '{"name":"mcp-servers"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/GetNamespace
 
+grpcurl -plaintext -d '{}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/ListNamespaces
+
 # Secret
 grpcurl -plaintext -import-path ./spec -proto service.proto -d '{"name":"test-secret00","namespace":"test-ns","data":{"API_KEY":"c2VjcmV0","TOKEN":"dG9rZW4="},"labels":{"type":"api-b"}}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/CreateSecret
 grpcurl -plaintext -import-path ./spec -proto service.proto -d '{"name":"test-secret01","namespace":"test-ns","data":{"API_KEY":"c2VjcmV0","TOKEN":"dG9rZW4="},"labels":{"type":"api-a"}}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/CreateSecret

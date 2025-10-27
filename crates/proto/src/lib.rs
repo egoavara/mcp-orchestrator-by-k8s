@@ -5,3 +5,4 @@ pub mod mcp {
         }
     }
 }
+pub const FILE_DESCRIPTOR_SET: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/descriptors.bin"));
