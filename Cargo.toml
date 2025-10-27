@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/frontend", "crates/proto", "crates/mcp-orchestrator"]
+members = ["crates/mcp-orchestrator-front", "crates/proto", "crates/mcp-orchestrator"]
 
 [workspace.package]
 version = "0.1.3"
