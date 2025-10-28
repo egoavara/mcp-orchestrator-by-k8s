@@ -1,4 +1,4 @@
-use proto_web::{McpTemplateResponse, CreateMcpTemplateRequest};
+use proto_web::{CreateMcpTemplateRequest, McpTemplateResponse};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -53,13 +53,16 @@ pub struct TemplateFormData {
 
 impl TemplateFormData {
     pub fn to_create_request(self) -> CreateMcpTemplateRequest {
-        let filtered_secret_envs: Vec<String> = self.secret_envs
+        let filtered_secret_envs: Vec<String> = self
+            .secret_envs
             .into_iter()
             .filter(|s| !s.is_empty())
             .collect();
-        
-        web_sys::console::log_1(&format!("Secret envs after filter: {:?}", filtered_secret_envs).into());
-        
+
+        web_sys::console::log_1(
+            &format!("Secret envs after filter: {:?}", filtered_secret_envs).into(),
+        );
+
         CreateMcpTemplateRequest {
             namespace: Some(self.namespace),
             name: self.name,

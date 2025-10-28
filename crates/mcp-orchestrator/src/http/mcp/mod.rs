@@ -1,7 +1,4 @@
-use axum::{
-    Router,
-    routing::get,
-};
+use axum::{Router, routing::get};
 
 mod delete_namespace_name;
 mod get_namespace_name;

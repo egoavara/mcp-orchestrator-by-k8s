@@ -1,6 +1,6 @@
+use crate::routes::Route;
 use yew::prelude::*;
 use yew_router::prelude::*;
-use crate::routes::Route;
 
 #[derive(Properties, PartialEq)]
 pub struct NavbarProps {

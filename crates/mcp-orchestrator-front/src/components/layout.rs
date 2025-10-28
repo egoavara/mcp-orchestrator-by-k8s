@@ -1,5 +1,5 @@
-use yew::prelude::*;
 use crate::components::Navbar;
+use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct LayoutProps {

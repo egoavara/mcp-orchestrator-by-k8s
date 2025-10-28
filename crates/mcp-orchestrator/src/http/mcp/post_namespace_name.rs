@@ -1,4 +1,3 @@
-
 use axum::{
     body::{Body, Bytes},
     extract::{Path, Request, State},
@@ -8,19 +7,19 @@ use http_body_util::{BodyExt, Full};
 use rmcp::{
     model::{ClientJsonRpcMessage, ClientRequest, GetExtensions},
     transport::common::{
-            http_header::{EVENT_STREAM_MIME_TYPE, HEADER_SESSION_ID, JSON_MIME_TYPE},
-            server_side_http::ServerSseMessage,
-        },
+        http_header::{EVENT_STREAM_MIME_TYPE, HEADER_SESSION_ID, JSON_MIME_TYPE},
+        server_side_http::ServerSseMessage,
+    },
 };
 
+use crate::http::mcp::utils::{
+    accepted_response, expect_json, internal_error_response, sse_stream_response,
+    unexpected_message_response,
+};
 use crate::{
     http::mcp::utils::{BoxResponse, get_session_manager},
     state::AppState,
 };
-use crate::http::mcp::utils::{
-        accepted_response, expect_json, internal_error_response, sse_stream_response,
-        unexpected_message_response,
-    };
 
 pub async fn handler(
     State(state): State<AppState>,
@@ -106,10 +105,7 @@ pub async fn handler(
                     .create_stream(&session_id, message)
                     .await
                     .map_err(internal_error_response("get session"))?;
-                Ok(sse_stream_response(
-                    stream,
-                    state.config.mcp.keep_alive,
-                ))
+                Ok(sse_stream_response(stream, state.config.mcp.keep_alive))
             }
             ClientJsonRpcMessage::Notification(_)
             | ClientJsonRpcMessage::Response(_)

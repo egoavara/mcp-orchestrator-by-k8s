@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+package mcp.orchestrator.v1;
+
+import "google/protobuf/any.proto";
+import "common.proto";
+
+// Request to create a new resource limit
+message CreateResourceLimitRequest {
+  string name = 1;
+  string description = 3;
+  ResourceLimit limits = 6;
+  map<string, string> labels = 5;
+}
+
+// Request to get a specific resource limit
+message GetResourceLimitRequest {
+  string name = 1;
+}
+
+// Request to list resource limits with pagination
+message ListResourceLimitsRequest {
+  LabelQuery label = 1;
+  optional int32 first = 2;
+  optional string after = 3;
+}
+
+// Response containing a list of resource limits
+message ListResourceLimitsResponse {
+  repeated ResourceLimitResponse data = 1;
+  optional string endCursor = 2;
+  bool hasNextPage = 3;
+}
+
+// Request to delete a resource limit
+message DeleteResourceLimitRequest {
+  string name = 1;
+  bool force = 2;
+}
+
+// Response after deleting a resource limit
+message DeleteResourceLimitResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Resource limit response with metadata
+message ResourceLimitResponse {
+  string name = 1;
+  string description = 3;
+  ResourceLimit limits = 4;
+  map<string, string> labels = 5;
+  string created_at = 6;
+  optional string deleted_at = 7;
+}
+
+// Enhanced ResourceLimit message with scheduling configuration
+message ResourceLimit {
+  // CPU request (e.g., "1000m", "2")
+  string cpu = 1;
+  
+  // Memory request (e.g., "512Mi", "2Gi")
+  string memory = 2;
+  
+  // CPU limit (optional, defaults to cpu if not specified)
+  optional string cpu_limit = 3;
+  
+  // Memory limit (optional, defaults to memory if not specified)
+  optional string memory_limit = 4;
+  
+  // Ephemeral storage request (optional)
+  optional string ephemeral_storage = 5;
+  
+  // Volume configuration (name -> VolumeLimit)
+  map<string, VolumeLimit> volumes = 6;
+  
+  // NEW: Node selector for simple label-based scheduling
+  // Content: JSON map of label key-value pairs
+  // Example: {"region": "us-west", "gpu": "true"}
+  // Type URL: "type.googleapis.com/mcp.orchestrator.NodeSelector"
+  optional google.protobuf.Any node_selector = 7;
+  
+  // NEW: Node affinity for complex scheduling rules
+  // Content: JSON Kubernetes Affinity object (nodeAffinity field)
+  // Example: {"nodeAffinity": {"requiredDuringSchedulingIgnoredDuringExecution": {...}}}
+  // Type URL: "type.googleapis.com/mcp.orchestrator.NodeAffinity"
+  optional google.protobuf.Any node_affinity = 8;
+}
+
+// gRPC service definition
+service ResourceLimitService {
+  // Create a new resource limit
+  rpc CreateResourceLimit(CreateResourceLimitRequest) returns (ResourceLimitResponse);
+  
+  // Get a specific resource limit by name
+  rpc GetResourceLimit(GetResourceLimitRequest) returns (ResourceLimitResponse);
+  
+  // List resource limits with optional filtering and pagination
+  rpc ListResourceLimits(ListResourceLimitsRequest) returns (ListResourceLimitsResponse);
+  
+  // Delete a resource limit (soft delete unless force=true)
+  rpc DeleteResourceLimit(DeleteResourceLimitRequest) returns (DeleteResourceLimitResponse);
+}

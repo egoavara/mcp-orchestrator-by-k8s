@@ -1,9 +1,9 @@
-use yew::prelude::*;
-use yew_router::prelude::*;
-use crate::api::resource_limits::{get_resource_limit, delete_resource_limit};
+use crate::api::resource_limits::{delete_resource_limit, get_resource_limit};
+use crate::components::{ConfirmDialog, ErrorMessage, Loading};
 use crate::models::resource_limit::ResourceLimit;
 use crate::routes::Route;
-use crate::components::{Loading, ErrorMessage, ConfirmDialog};
+use yew::prelude::*;
+use yew_router::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
@@ -24,7 +24,7 @@ pub fn resource_limit_detail(props: &Props) -> Html {
     let is_deleting = use_state(|| false);
     let delete_error = use_state(|| Option::<String>::None);
     let navigator = use_navigator().unwrap();
-    
+
     let name = props.name.clone();
 
     {
@@ -54,7 +54,7 @@ pub fn resource_limit_detail(props: &Props) -> Html {
         let show_delete_confirm = show_delete_confirm.clone();
         let navigator = navigator.clone();
         let name = name.clone();
-        
+
         Callback::from(move |_| {
             is_deleting.set(true);
             let is_deleting = is_deleting.clone();
@@ -62,7 +62,7 @@ pub fn resource_limit_detail(props: &Props) -> Html {
             let show_delete_confirm = show_delete_confirm.clone();
             let navigator = navigator.clone();
             let name = name.clone();
-            
+
             wasm_bindgen_futures::spawn_local(async move {
                 match delete_resource_limit(&name).await {
                     Ok(_) => {
@@ -90,7 +90,7 @@ pub fn resource_limit_detail(props: &Props) -> Html {
             <div class="header">
                 <h1>{ "Resource Limit Details" }</h1>
                 <div style="display: flex; gap: 0.75rem;">
-                    <button 
+                    <button
                         class="btn-danger"
                         onclick={on_delete_click}
                         disabled={*is_deleting}
@@ -184,6 +184,40 @@ pub fn resource_limit_detail(props: &Props) -> Html {
                                             html! {}
                                         }}
                                     </div>
+                                </div>
+                            }
+                        } else {
+                            html! {}
+                        }}
+
+                        { if limit.limits.node_selector.is_some() || limit.limits.node_affinity.is_some() {
+                            html! {
+                                <div class="detail-section">
+                                    <h2>{ "Node Scheduling Configuration" }</h2>
+                                    { if let Some(node_selector_yaml) = &limit.limits.node_selector {
+                                        html! {
+                                            <div class="detail-field" style="margin-bottom: 1.5rem;">
+                                                <label>{ "Node Selector:" }</label>
+                                                <pre style="background: var(--bg-primary); color: var(--text-primary); padding: 1rem; border-radius: 4px; overflow-x: auto; font-family: monospace; font-size: 12px; border: 1px solid var(--border-color);">
+                                                    { node_selector_yaml }
+                                                </pre>
+                                            </div>
+                                        }
+                                    } else {
+                                        html! {}
+                                    }}
+                                    { if let Some(node_affinity_yaml) = &limit.limits.node_affinity {
+                                        html! {
+                                            <div class="detail-field">
+                                                <label>{ "Node Affinity:" }</label>
+                                                <pre style="background: var(--bg-primary); color: var(--text-primary); padding: 1rem; border-radius: 4px; overflow-x: auto; font-family: monospace; font-size: 12px; border: 1px solid var(--border-color);">
+                                                    { node_affinity_yaml }
+                                                </pre>
+                                            </div>
+                                        }
+                                    } else {
+                                        html! {}
+                                    }}
                                 </div>
                             }
                         } else {

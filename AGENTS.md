@@ -24,3 +24,10 @@
 2. K8s Controller: Pod 생성/관리/삭제
 3. Protocol Bridge: stdio ↔ HTTP-SSE 변환
 4. Session 관리: 클라이언트별 MCP 인스턴스 매핑
+
+## Active Technologies
+- Rust 1.90.0 + kube 0.x, k8s-openapi 0.x, prost (protobuf), serde_json, tonic (002-resource-limit-scheduling)
+- Kubernetes ConfigMaps (JSON data fields) (002-resource-limit-scheduling)
+
+## Recent Changes
+- 002-resource-limit-scheduling: Added Rust 1.90.0 + kube 0.x, k8s-openapi 0.x, prost (protobuf), serde_json, tonic

@@ -8,7 +8,9 @@ use axum::{
 };
 use http_body::Body;
 use http_body_util::{BodyExt, Full};
-use rmcp::transport::common::http_header::{EVENT_STREAM_MIME_TYPE, HEADER_LAST_EVENT_ID, HEADER_SESSION_ID};
+use rmcp::transport::common::http_header::{
+    EVENT_STREAM_MIME_TYPE, HEADER_LAST_EVENT_ID, HEADER_SESSION_ID,
+};
 
 use crate::http::mcp::utils::{BoxResponse, sse_stream_response};
 use crate::{
@@ -81,19 +83,13 @@ where
             .resume(&session_id, last_event_id)
             .await
             .map_err(internal_error_response("resume session"))?;
-        Ok(sse_stream_response(
-            stream,
-            state.config.mcp.keep_alive,
-        ))
+        Ok(sse_stream_response(stream, state.config.mcp.keep_alive))
     } else {
         // create standalone stream
         let stream = session_manager
             .create_standalone_stream(&session_id)
             .await
             .map_err(internal_error_response("create standalone stream"))?;
-        Ok(sse_stream_response(
-            stream,
-            state.config.mcp.keep_alive,
-        ))
+        Ok(sse_stream_response(stream, state.config.mcp.keep_alive))
     }
 }

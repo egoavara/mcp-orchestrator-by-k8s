@@ -2,8 +2,7 @@ use crate::api::client::grpc_web_call;
 use crate::models::template::Template;
 use proto_web::{
     CreateMcpTemplateRequest, DeleteMcpTemplateRequest, DeleteMcpTemplateResponse,
-    GetMcpTemplateRequest, ListMcpTemplatesRequest, ListMcpTemplatesResponse,
-    McpTemplateResponse,
+    GetMcpTemplateRequest, ListMcpTemplatesRequest, ListMcpTemplatesResponse, McpTemplateResponse,
 };
 
 pub async fn list_templates(namespace: &str) -> Result<Vec<Template>, String> {
@@ -20,11 +19,7 @@ pub async fn list_templates(namespace: &str) -> Result<Vec<Template>, String> {
     )
     .await?;
 
-    Ok(response
-        .data
-        .into_iter()
-        .map(Template::from)
-        .collect())
+    Ok(response.data.into_iter().map(Template::from).collect())
 }
 
 pub async fn get_template(namespace: &str, name: &str) -> Result<Template, String> {
@@ -66,5 +61,3 @@ pub async fn delete_template(namespace: &str, name: &str) -> Result<(), String> 
 
     Ok(())
 }
-
-

@@ -1,12 +1,12 @@
+use crate::api::secrets::{get_secret, update_secret};
+use crate::components::{ErrorMessage, Loading};
+use crate::models::{secret::Secret, SessionState};
+use crate::routes::Route;
+use proto_web::{SecretUpdateStrategy, UpdateSecretRequest};
+use std::collections::HashMap;
 use yew::prelude::*;
 use yew_router::prelude::*;
 use yewdux::prelude::*;
-use std::collections::HashMap;
-use crate::api::secrets::{get_secret, update_secret};
-use crate::models::{SessionState, secret::Secret};
-use crate::routes::Route;
-use crate::components::{ErrorMessage, Loading};
-use proto_web::{UpdateSecretRequest, SecretUpdateStrategy};
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
@@ -38,7 +38,7 @@ pub fn secret_update(props: &Props) -> Html {
         let secret_data = secret_data.clone();
         let is_loading = is_loading.clone();
         let load_error = load_error.clone();
-        
+
         use_effect_with((namespace.clone(), name.clone()), move |_| {
             wasm_bindgen_futures::spawn_local(async move {
                 match get_secret(&namespace, &name).await {
@@ -119,49 +119,56 @@ pub fn secret_update(props: &Props) -> Html {
         let navigator = navigator.clone();
         let namespace = props.namespace.clone();
         let name = props.name.clone();
-        
+
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
-            
+
             if !errors.is_empty() {
                 return;
             }
-            
+
             let data = (*form_data).clone();
-            
+
             let mut validation_errors = HashMap::new();
             if data.data.is_empty() {
-                validation_errors.insert("data".to_string(), "At least one key-value pair is required".to_string());
+                validation_errors.insert(
+                    "data".to_string(),
+                    "At least one key-value pair is required".to_string(),
+                );
             }
             if data.strategy == SecretUpdateStrategy::Unspecified {
-                validation_errors.insert("strategy".to_string(), "Update strategy is required".to_string());
+                validation_errors.insert(
+                    "strategy".to_string(),
+                    "Update strategy is required".to_string(),
+                );
             }
-            
+
             if !validation_errors.is_empty() {
                 errors.set(validation_errors);
                 return;
             }
-            
+
             is_submitting.set(true);
             let is_submitting = is_submitting.clone();
             let submit_error = submit_error.clone();
             let navigator = navigator.clone();
             let namespace = namespace.clone();
             let name = name.clone();
-            
+
             wasm_bindgen_futures::spawn_local(async move {
-                let data_map: HashMap<String, String> = data.data
+                let data_map: HashMap<String, String> = data
+                    .data
                     .into_iter()
                     .filter(|(k, v)| !k.is_empty() && !v.is_empty())
                     .collect();
-                
+
                 let request = UpdateSecretRequest {
                     namespace: Some(namespace.clone()),
                     name: name.clone(),
                     data: data_map,
                     strategy: data.strategy as i32,
                 };
-                
+
                 match update_secret(request).await {
                     Ok(secret) => {
                         navigator.push(&Route::SecretDetail {
@@ -259,7 +266,7 @@ pub fn secret_update(props: &Props) -> Html {
                 <div class="form-section">
                     <label class="section-label">{ "New/Updated Data * (values will be encrypted)" }</label>
                     <small class="form-help">{ "Add key-value pairs to create or update" }</small>
-                    
+
                     { for form_data.data.iter().enumerate().map(|(index, (key, value))| {
                         let on_key_change = {
                             let on_data_key_change = on_data_key_change.clone();
@@ -279,10 +286,10 @@ pub fn secret_update(props: &Props) -> Html {
                             let on_remove_data = on_remove_data.clone();
                             Callback::from(move |_| on_remove_data(index))
                         };
-                        
+
                         html! {
                             <div class="label-row" key={index}>
-                                <input 
+                                <input
                                     type="text"
                                     value={key.clone()}
                                     onchange={on_key_change}
@@ -290,14 +297,14 @@ pub fn secret_update(props: &Props) -> Html {
                                     class="label-key"
                                 />
                                 <span>{ "=" }</span>
-                                <input 
+                                <input
                                     type="password"
                                     value={value.clone()}
                                     onchange={on_value_change}
                                     placeholder="value (hidden)"
                                     class="label-value"
                                 />
-                                <button 
+                                <button
                                     type="button"
                                     onclick={on_remove}
                                     class="btn-danger-small"
@@ -307,22 +314,22 @@ pub fn secret_update(props: &Props) -> Html {
                             </div>
                         }
                     })}
-                    
-                    <button 
+
+                    <button
                         type="button"
                         onclick={on_add_data}
                         class="btn-secondary-small"
                     >
                         { "+ Add Key-Value Pair" }
                     </button>
-                    
+
                     { if let Some(error) = errors.get("data") {
                         html! { <p class="error-text">{ error }</p> }
                     } else { html! {} }}
                 </div>
 
                 <div class="form-actions">
-                    <button 
+                    <button
                         type="submit"
                         class="btn-primary"
                         disabled={*is_submitting || !errors.is_empty()}
