@@ -18,9 +18,10 @@
 FROM rust:1.90-bookworm AS planner
 WORKDIR /app
 
-# Install protobuf compiler
+# Install protobuf compiler and proto definitions
 RUN apt-get update && apt-get install -y --no-install-recommends \
     protobuf-compiler \
+    libprotobuf-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install cargo-chef (cached layer)
@@ -57,9 +58,10 @@ ARG TARGETPLATFORM
 ARG RUST_VERSION=1.90
 ARG TARGET_BINARY=mcp-orchestrator
 
-# Install protobuf compiler
+# Install protobuf compiler and proto definitions
 RUN apt-get update && apt-get install -y --no-install-recommends \
     protobuf-compiler \
+    libprotobuf-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install cargo-chef (cached layer)
