@@ -1,9 +1,9 @@
-use yew::prelude::*;
-use yew_router::prelude::*;
 use crate::api::namespaces::list_namespaces;
+use crate::components::{ErrorMessage, Loading};
 use crate::models::namespace::Namespace;
 use crate::routes::Route;
-use crate::components::{Loading, ErrorMessage};
+use yew::prelude::*;
+use yew_router::prelude::*;
 
 #[derive(Debug)]
 enum LoadState {

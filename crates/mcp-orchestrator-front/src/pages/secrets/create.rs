@@ -1,13 +1,13 @@
+use crate::api::secrets::create_secret;
+use crate::components::{ErrorMessage, FormField, NamespaceSelector};
+use crate::models::SessionState;
+use crate::routes::Route;
+use crate::utils::validation::validate_name;
+use proto_web::CreateSecretRequest;
+use std::collections::HashMap;
 use yew::prelude::*;
 use yew_router::prelude::*;
 use yewdux::prelude::*;
-use std::collections::HashMap;
-use crate::api::secrets::create_secret;
-use crate::models::SessionState;
-use crate::routes::Route;
-use crate::components::{FormField, ErrorMessage, NamespaceSelector};
-use crate::utils::validation::validate_name;
-use proto_web::CreateSecretRequest;
 
 #[derive(Default, Clone, PartialEq)]
 struct SecretFormData {
@@ -37,7 +37,7 @@ pub fn secret_create() -> Html {
             let mut data = (*form_data).clone();
             data.name = value.clone();
             form_data.set(data);
-            
+
             let mut new_errors = (*errors).clone();
             if let Some(error) = validate_name(&value) {
                 new_errors.insert("name".to_string(), error);
@@ -95,53 +95,58 @@ pub fn secret_create() -> Html {
         let submit_error = submit_error.clone();
         let navigator = navigator.clone();
         let namespace_value = namespace_value.clone();
-        
+
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
-            
+
             if !errors.is_empty() {
                 return;
             }
-            
+
             let data = (*form_data).clone();
-            
+
             let mut validation_errors = HashMap::new();
             if let Some(error) = validate_name(&data.name) {
                 validation_errors.insert("name".to_string(), error);
             }
             if data.data.is_empty() {
-                validation_errors.insert("data".to_string(), "At least one key-value pair is required".to_string());
+                validation_errors.insert(
+                    "data".to_string(),
+                    "At least one key-value pair is required".to_string(),
+                );
             }
-            
+
             if !validation_errors.is_empty() {
                 errors.set(validation_errors);
                 return;
             }
-            
+
             is_submitting.set(true);
             let is_submitting = is_submitting.clone();
             let submit_error = submit_error.clone();
             let navigator = navigator.clone();
             let namespace_value = namespace_value.clone();
-            
+
             wasm_bindgen_futures::spawn_local(async move {
-                let data_map: HashMap<String, String> = data.data
+                let data_map: HashMap<String, String> = data
+                    .data
                     .into_iter()
                     .filter(|(k, v)| !k.is_empty() && !v.is_empty())
                     .collect();
-                
-                let labels_map: HashMap<String, String> = data.labels
+
+                let labels_map: HashMap<String, String> = data
+                    .labels
                     .into_iter()
                     .filter(|(k, v)| !k.is_empty() && !v.is_empty())
                     .collect();
-                
+
                 let request = CreateSecretRequest {
                     namespace: Some(namespace_value.clone()),
                     name: data.name.clone(),
                     labels: labels_map,
                     data: data_map,
                 };
-                
+
                 match create_secret(request).await {
                     Ok(secret) => {
                         navigator.push(&Route::SecretDetail {
@@ -161,7 +166,7 @@ pub fn secret_create() -> Html {
     html! {
         <div class="container">
             <NamespaceSelector />
-            
+
             <div class="header">
                 <h1>{ "Create Secret" }</h1>
                 <Link<Route> to={Route::SecretList}>
@@ -179,11 +184,11 @@ pub fn secret_create() -> Html {
                     <span class="namespace-badge">{ &namespace_value }</span>
                 </div>
 
-                <FormField 
+                <FormField
                     label="Secret Name *"
                     error={errors.get("name").cloned()}
                 >
-                    <input 
+                    <input
                         type="text"
                         value={form_data.name.clone()}
                         onchange={on_name_change}
@@ -196,7 +201,7 @@ pub fn secret_create() -> Html {
                 <div class="form-section">
                     <label class="section-label">{ "Secret Data * (values will be encrypted)" }</label>
                     <small class="form-help">{ "Add key-value pairs for sensitive data" }</small>
-                    
+
                     { for form_data.data.iter().enumerate().map(|(index, (key, value))| {
                         let on_key_change = {
                             let on_data_key_change = on_data_key_change.clone();
@@ -216,10 +221,10 @@ pub fn secret_create() -> Html {
                             let on_remove_data = on_remove_data.clone();
                             Callback::from(move |_| on_remove_data(index))
                         };
-                        
+
                         html! {
                             <div class="label-row" key={index}>
-                                <input 
+                                <input
                                     type="text"
                                     value={key.clone()}
                                     onchange={on_key_change}
@@ -227,14 +232,14 @@ pub fn secret_create() -> Html {
                                     class="label-key"
                                 />
                                 <span>{ "=" }</span>
-                                <input 
+                                <input
                                     type="password"
                                     value={value.clone()}
                                     onchange={on_value_change}
                                     placeholder="value (hidden)"
                                     class="label-value"
                                 />
-                                <button 
+                                <button
                                     type="button"
                                     onclick={on_remove}
                                     class="btn-danger-small"
@@ -244,22 +249,22 @@ pub fn secret_create() -> Html {
                             </div>
                         }
                     })}
-                    
-                    <button 
+
+                    <button
                         type="button"
                         onclick={on_add_data}
                         class="btn-secondary-small"
                     >
                         { "+ Add Key-Value Pair" }
                     </button>
-                    
+
                     { if let Some(error) = errors.get("data") {
                         html! { <p class="error-text">{ error }</p> }
                     } else { html! {} }}
                 </div>
 
                 <div class="form-actions">
-                    <button 
+                    <button
                         type="submit"
                         class="btn-primary"
                         disabled={*is_submitting || !errors.is_empty()}

@@ -1,9 +1,9 @@
-use yew::prelude::*;
-use yew_router::prelude::*;
-use crate::api::templates::{get_template, delete_template};
+use crate::api::templates::{delete_template, get_template};
+use crate::components::{ConfirmDialog, ErrorMessage, Loading};
 use crate::models::template::Template;
 use crate::routes::Route;
-use crate::components::{Loading, ErrorMessage, ConfirmDialog};
+use yew::prelude::*;
+use yew_router::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct TemplateDetailProps {
@@ -28,7 +28,7 @@ pub fn template_detail(props: &TemplateDetailProps) -> Html {
         let load_state = load_state.clone();
         let namespace = props.namespace.clone();
         let name = props.name.clone();
-        
+
         use_effect_with((namespace.clone(), name.clone()), move |_| {
             wasm_bindgen_futures::spawn_local(async move {
                 match get_template(&namespace, &name).await {

@@ -1974,7 +1974,7 @@ checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "mcp-orchestrator"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "axum",
@@ -2032,9 +2032,11 @@ dependencies = [
  "gloo-timers 0.3.0",
  "log",
  "prost",
+ "prost-wkt-types",
  "proto-web",
  "serde",
  "serde_json",
+ "serde_yaml",
  "tonic-web-wasm-client",
  "wasm-bindgen",
  "wasm-bindgen-cli-support",
@@ -2542,7 +2544,7 @@ dependencies = [
 
 [[package]]
 name = "proto"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "prost",
  "prost-wkt",
@@ -2556,7 +2558,7 @@ dependencies = [
 
 [[package]]
 name = "proto-web"
-version = "0.2.0"
+version = "0.2.2"
 dependencies = [
  "prost",
  "prost-build",

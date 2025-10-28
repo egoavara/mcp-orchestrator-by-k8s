@@ -28,11 +28,9 @@ impl Default for UserPreferences {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
 pub enum Theme {
     Light,
     #[default]
     Dark,
 }
-

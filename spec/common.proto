@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package mcp.orchestrator.v1;
 
+import "google/protobuf/any.proto";
+
 message VolumeMount {
   string pattern = 1;
   string mount_path = 2;
@@ -24,6 +26,8 @@ message ResourceLimit {
   optional string memory_limit = 4;
   optional string ephemeral_storage = 5;
   map<string, VolumeLimit> volumes = 6;
+  map<string, string> node_selector = 7;
+  optional string node_affinity = 8;
 }
 
 enum SecretUpdateStrategy {

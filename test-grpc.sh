@@ -37,15 +37,15 @@ grpcurl -plaintext -import-path ./spec -proto service.proto -d '{"name":"test-se
 grpcurl -plaintext -import-path ./spec -proto service.proto -d '{"name":"test-secret01","namespace":"test-ns"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/DeleteSecret
 
 # ResourceLimit
-grpcurl -plaintext -import-path ./spec -proto service.proto -d '{"name":"m0-nano","limits":{"cpu":"150m","memory":"150Mi","volumes":{}},"labels":{},"description":"for general mcp server"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/CreateResourceLimit
-grpcurl -plaintext -import-path ./spec -proto service.proto -d '{"name":"m0-small","limits":{"cpu":"250m","memory":"250Mi","volumes":{}},"labels":{},"description":"for general mcp server"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/CreateResourceLimit
-grpcurl -plaintext -import-path ./spec -proto service.proto -d '{"name":"m0-medium","limits":{"cpu":"500m","memory":"500Mi","volumes":{}},"labels":{},"description":"for general mcp server"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/CreateResourceLimit
-grpcurl -plaintext -import-path ./spec -proto service.proto -d '{"name":"m0-large","limits":{"cpu":"750m","memory":"750Mi","volumes":{}},"labels":{},"description":"for general mcp server"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/CreateResourceLimit
-grpcurl -plaintext -import-path ./spec -proto service.proto -d '{"name":"m0-xlarge","limits":{"cpu":"1000m","memory":"1000Mi","volumes":{}},"labels":{},"description":"for general mcp server"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/CreateResourceLimit
-grpcurl -plaintext -import-path ./spec -proto service.proto -d '{}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/ListResourceLimits
-grpcurl -plaintext -import-path ./spec -proto service.proto -d '{"name":"m0-small"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/GetResourceLimit
-grpcurl -plaintext -import-path ./spec -proto service.proto -d '{"name":"m0-nano"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/DeleteResourceLimit
-grpcurl -plaintext -import-path ./spec -proto service.proto -d '{"name":"m0-small"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/DeleteResourceLimit
+grpcurl -plaintext -d '{"name":"m0-nano","limits":{"cpu":"150m","memory":"150Mi","volumes":{},"node_selector":{"beta.kubernetes.io/os":"linux"}},"labels":{},"description":"for general mcp server"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/CreateResourceLimit
+grpcurl -plaintext -d '{"name":"m0-small","limits":{"cpu":"250m","memory":"250Mi","volumes":{},"node_selector":{"beta.kubernetes.io/os":"linux"}},"labels":{},"description":"for general mcp server"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/CreateResourceLimit
+grpcurl -plaintext -d '{"name":"m0-medium","limits":{"cpu":"500m","memory":"500Mi","volumes":{},"node_selector":{"beta.kubernetes.io/os":"linux"}},"labels":{},"description":"for general mcp server"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/CreateResourceLimit
+grpcurl -plaintext -d '{"name":"m0-large","limits":{"cpu":"750m","memory":"750Mi","volumes":{},"node_selector":{"beta.kubernetes.io/os":"linux"}},"labels":{},"description":"for general mcp server"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/CreateResourceLimit
+grpcurl -plaintext -d '{"name":"m0-xlarge","limits":{"cpu":"1000m","memory":"1000Mi","volumes":{},"node_selector":{"beta.kubernetes.io/os":"linux"}},"labels":{},"description":"for general mcp server"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/CreateResourceLimit
+grpcurl -plaintext -d '{}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/ListResourceLimits
+grpcurl -plaintext -d '{"name":"m0-small"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/GetResourceLimit
+grpcurl -plaintext -d '{"name":"m0-nano"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/DeleteResourceLimit
+grpcurl -plaintext -d '{"name":"m0-small"}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/DeleteResourceLimit
 
 # McpTemplate  optional string namespace = 1;
 grpcurl -plaintext -import-path ./spec -proto service.proto -d '{"name":"test-template0","namespace":"test-ns","resource_limit_name":"m0-medium","image":"node:25-alpine3.21","command":["npx"],"args":["--y","@modelcontextprotocol/server-memory"],"envs":{"LOG":"debug"},"secret_envs":["test-secret00"],"secret_mounts":[{"name":"test-secret01","mount_path":"/secret/test-secret01"}],"labels":{"app":"mcp"}}' 127.0.0.1:3000 mcp.orchestrator.v1.McpOrchestratorService/CreateMcpTemplate

@@ -51,7 +51,10 @@ impl McpOrchestratorService for GrpcService {
         mcp_template::delete_mcp_template(&self.state, request).await
     }
 
-    async fn get_mcp(&self, _request: Request<McpRequest>) -> Result<Response<McpResponse>, Status> {
+    async fn get_mcp(
+        &self,
+        _request: Request<McpRequest>,
+    ) -> Result<Response<McpResponse>, Status> {
         // mcp_server::get_mcp_server(&self.state, request).await
         todo!()
     }

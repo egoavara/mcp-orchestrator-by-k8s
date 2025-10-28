@@ -1,9 +1,8 @@
-
 pub mod mcp;
 
-pub mod statics;
 pub mod fallback;
 pub mod index;
+pub mod statics;
 
 use axum::{Router, routing::get};
 

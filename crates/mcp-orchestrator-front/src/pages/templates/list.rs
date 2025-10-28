@@ -1,11 +1,11 @@
-use yew::prelude::*;
-use yew_router::prelude::*;
-use yewdux::prelude::*;
 use crate::api::templates::list_templates;
+use crate::components::{ErrorMessage, Loading, NamespaceSelector};
 use crate::models::template::Template;
 use crate::models::SessionState;
 use crate::routes::Route;
-use crate::components::{Loading, ErrorMessage, NamespaceSelector};
+use yew::prelude::*;
+use yew_router::prelude::*;
+use yewdux::prelude::*;
 
 #[derive(Debug)]
 enum LoadState {
@@ -18,7 +18,10 @@ enum LoadState {
 pub fn template_list() -> Html {
     let load_state = use_state(|| LoadState::Loading);
     let (session_state, _) = use_store::<SessionState>();
-    let namespace = session_state.selected_namespace.clone().unwrap_or_else(|| "default".to_string());
+    let namespace = session_state
+        .selected_namespace
+        .clone()
+        .unwrap_or_else(|| "default".to_string());
 
     {
         let load_state = load_state.clone();
@@ -37,7 +40,7 @@ pub fn template_list() -> Html {
     html! {
         <div class="container">
             <NamespaceSelector />
-            
+
             <div class="header">
                 <h1>{ "MCP Templates" }</h1>
                 <Link<Route> to={Route::TemplateCreate}>

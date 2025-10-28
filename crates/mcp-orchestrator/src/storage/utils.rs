@@ -145,6 +145,22 @@ pub fn data_elem<S: Serialize>(key: &str, data: &S) -> Result<(String, String), 
         .map_err(AppError::SerializationError)
 }
 
+pub fn data_elem_jsonstr(key: &str, data: &str) -> Result<(String, String), AppError> {
+    serde_json::from_str::<serde_json::Value>(data)
+        .map(|_| (key.to_string(), data.to_string()))
+        .map_err(AppError::SerializationError)
+}
+
+pub fn data_elem_ojsonstr<S: AsRef<str>>(
+    key: &str,
+    data: Option<S>,
+) -> Result<(String, String), AppError> {
+    if let Some(data) = data {
+        return data_elem_jsonstr(key, data.as_ref());
+    }
+    Ok((key.to_string(), "null".to_string()))
+}
+
 pub fn parse_data_elem<D: DeserializeOwned>(
     data: &Option<BTreeMap<String, String>>,
     key: &str,

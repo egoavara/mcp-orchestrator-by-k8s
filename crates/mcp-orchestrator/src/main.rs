@@ -8,6 +8,7 @@ use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 
+mod assets;
 mod config;
 mod error;
 mod grpc;
@@ -16,7 +17,6 @@ mod podmcp;
 mod service;
 mod state;
 mod storage;
-mod assets;
 
 use config::AppConfig;
 use grpc::GrpcService;
@@ -97,14 +97,18 @@ async fn main() -> anyhow::Result<()> {
     let http_router = router().with_state(state.clone());
 
     let grpc_with_reflection = axum::Router::new()
-        .route_service("/mcp.orchestrator.v1.McpOrchestratorService/{*path}", 
+        .route_service(
+            "/mcp.orchestrator.v1.McpOrchestratorService/{*path}",
             ServiceBuilder::new()
                 .layer(tonic_web::GrpcWebLayer::new())
-                .service(grpc_server))
-        .route_service("/grpc.reflection.v1.ServerReflection/{*path}",
+                .service(grpc_server),
+        )
+        .route_service(
+            "/grpc.reflection.v1.ServerReflection/{*path}",
             ServiceBuilder::new()
                 .layer(tonic_web::GrpcWebLayer::new())
-                .service(reflection_service));
+                .service(reflection_service),
+        );
 
     let app = http_router
         .merge(grpc_with_reflection)

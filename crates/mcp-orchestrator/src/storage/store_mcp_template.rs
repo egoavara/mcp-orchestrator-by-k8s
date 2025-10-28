@@ -225,6 +225,23 @@ impl McpTemplateData {
             requirement
         );
 
+        let mut pod_spec = PodSpec {
+            containers: vec![Container {
+                name: "main".to_string(),
+                image: Some(self.image.clone()),
+                command: Some(self.command.clone()),
+                args: Some(self.args.clone()),
+                stdin: Some(true),
+                tty: Some(false),
+                env: Some(envs),
+                resources: Some(requirement),
+                ..Default::default()
+            }],
+            node_selector: resource_limit.node_selector.clone(),
+            affinity: resource_limit.node_affinity.clone(),
+            ..Default::default()
+        };
+
         Ok(Pod {
             metadata: ObjectMeta {
                 name: Some(session_id.to_string()),
@@ -237,20 +254,7 @@ impl McpTemplateData {
                 owner_references: Some(vec![self.raw.controller_owner_ref(&()).unwrap()]),
                 ..Default::default()
             },
-            spec: Some(PodSpec {
-                containers: vec![Container {
-                    name: "main".to_string(),
-                    image: Some(self.image.clone()),
-                    command: Some(self.command.clone()),
-                    args: Some(self.args.clone()),
-                    stdin: Some(true),
-                    tty: Some(false),
-                    env: Some(envs),
-                    resources: Some(requirement),
-                    ..Default::default()
-                }],
-                ..Default::default()
-            }),
+            spec: Some(pod_spec),
             ..Default::default()
         })
     }

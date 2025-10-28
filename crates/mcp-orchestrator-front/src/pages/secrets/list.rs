@@ -1,11 +1,11 @@
-use yew::prelude::*;
-use yew_router::prelude::*;
-use yewdux::prelude::*;
 use crate::api::secrets::list_secrets;
+use crate::components::{ErrorMessage, Loading, NamespaceSelector};
 use crate::models::secret::Secret;
 use crate::models::SessionState;
 use crate::routes::Route;
-use crate::components::{Loading, ErrorMessage, NamespaceSelector};
+use yew::prelude::*;
+use yew_router::prelude::*;
+use yewdux::prelude::*;
 
 #[derive(Debug)]
 enum LoadState {
@@ -34,7 +34,9 @@ pub fn secret_list() -> Html {
                     }
                 });
             } else {
-                load_state.set(LoadState::Error("Please select a namespace first".to_string()));
+                load_state.set(LoadState::Error(
+                    "Please select a namespace first".to_string(),
+                ));
             }
             || ()
         });
@@ -43,7 +45,7 @@ pub fn secret_list() -> Html {
     html! {
         <div class="container">
             <NamespaceSelector />
-            
+
             <div class="header">
                 <h1>{ "Secrets" }</h1>
                 { if namespace.is_some() {

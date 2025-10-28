@@ -1,9 +1,7 @@
-
 use crate::{
     error::AppError,
-    storage::labels::{label_fullpath, LABEL_MANAGED_BY, LABEL_MANAGED_BY_VALUE, LABEL_TYPE_OF},
+    storage::labels::{LABEL_MANAGED_BY, LABEL_MANAGED_BY_VALUE, LABEL_TYPE_OF, label_fullpath},
 };
-
 
 #[derive(Debug, Clone)]
 pub enum LabelQuery {

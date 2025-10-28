@@ -1,9 +1,8 @@
 use crate::api::client::grpc_web_call;
 use crate::models::namespace::Namespace;
 use proto_web::{
-    ListNamespacesRequest, ListNamespacesResponse,
-    GetNamespaceRequest, NamespaceResponse,
-    CreateNamespaceRequest,
+    CreateNamespaceRequest, GetNamespaceRequest, ListNamespacesRequest, ListNamespacesResponse,
+    NamespaceResponse,
 };
 
 pub async fn list_namespaces() -> Result<Vec<Namespace>, String> {
@@ -19,11 +18,7 @@ pub async fn list_namespaces() -> Result<Vec<Namespace>, String> {
     )
     .await?;
 
-    Ok(response
-        .data
-        .into_iter()
-        .map(Namespace::from)
-        .collect())
+    Ok(response.data.into_iter().map(Namespace::from).collect())
 }
 
 pub async fn get_namespace(name: &str) -> Result<Namespace, String> {

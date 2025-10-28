@@ -1,9 +1,9 @@
-use yew::prelude::*;
-use yew_router::prelude::*;
 use crate::api::namespaces::get_namespace;
+use crate::components::{ErrorMessage, Loading};
 use crate::models::namespace::Namespace;
 use crate::routes::Route;
-use crate::components::{Loading, ErrorMessage};
+use yew::prelude::*;
+use yew_router::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
