@@ -1,7 +1,9 @@
+use crate::api::authorizations::list_authorizations;
 use crate::api::resource_limits::list_resource_limits;
 use crate::api::secrets::list_secrets;
 use crate::api::templates::create_template;
 use crate::components::{ErrorMessage, FormField, NamespaceSelector};
+use crate::models::authorization::Authorization;
 use crate::models::resource_limit::ResourceLimit;
 use crate::models::secret::Secret;
 use crate::models::template::TemplateFormData;
@@ -35,6 +37,9 @@ pub fn template_form() -> Html {
 
     let secrets = use_state(Vec::<Secret>::new);
     let is_loading_secrets = use_state(|| true);
+
+    let authorizations = use_state(Vec::<Authorization>::new);
+    let is_loading_authorizations = use_state(|| true);
 
     // Load resource limits
     {
@@ -79,6 +84,33 @@ pub fn template_form() -> Html {
                     }
                 }
                 is_loading_secrets.set(false);
+            });
+            || ()
+        });
+    }
+
+    // Load authorizations for the current namespace
+    {
+        let authorizations = authorizations.clone();
+        let is_loading_authorizations = is_loading_authorizations.clone();
+        let namespace = namespace.clone();
+        use_effect_with(namespace.clone(), move |ns| {
+            let authorizations = authorizations.clone();
+            let is_loading_authorizations = is_loading_authorizations.clone();
+            let namespace = Some(ns.clone());
+            wasm_bindgen_futures::spawn_local(async move {
+                match list_authorizations(namespace, None).await {
+                    Ok(auth_list) => {
+                        authorizations.set(auth_list);
+                    }
+                    Err(e) => {
+                        web_sys::console::error_1(
+                            &format!("Failed to load authorizations: {}", e).into(),
+                        );
+                        authorizations.set(vec![]);
+                    }
+                }
+                is_loading_authorizations.set(false);
             });
             || ()
         });
@@ -287,6 +319,21 @@ pub fn template_form() -> Html {
                 new_errors.remove("resource_limit_name");
             }
             errors.set(new_errors);
+        })
+    };
+
+    let on_authorization_change = {
+        let form_data = form_data.clone();
+        Callback::from(move |e: Event| {
+            let select: web_sys::HtmlSelectElement = e.target_unchecked_into();
+            let value = select.value();
+            let mut data = (*form_data).clone();
+            data.authorization_name = if value.is_empty() {
+                None
+            } else {
+                Some(value)
+            };
+            form_data.set(data);
         })
     };
 
@@ -601,6 +648,38 @@ pub fn template_form() -> Html {
                                 })}
                             </select>
                             <small class="form-help">{ "Select a resource limit configuration for this template" }</small>
+                        </>
+                    }
+                </FormField>
+
+                <FormField
+                    label="Authorization"
+                    error={Option::<String>::None}
+                >
+                    if *is_loading_authorizations {
+                        <select disabled={true}>
+                            <option>{"Loading authorizations..."}</option>
+                        </select>
+                    } else {
+                        <>
+                            <select
+                                onchange={on_authorization_change}
+                            >
+                                <option value="" selected={form_data.authorization_name.is_none()}>{"-- Use default (anonymous) --"}</option>
+                                { for authorizations.iter().map(|auth| {
+                                    let is_selected = form_data.authorization_name.as_ref() == Some(&auth.name);
+                                    let type_name = match auth.auth_type {
+                                        1 => "Service Account",
+                                        _ => "Unknown",
+                                    };
+                                    html! {
+                                        <option key={auth.name.clone()} value={auth.name.clone()} selected={is_selected}>
+                                            {format!("{} ({})", auth.name, type_name)}
+                                        </option>
+                                    }
+                                })}
+                            </select>
+                            <small class="form-help">{ "Optional: Select an authorization for accessing this MCP server. If not selected, anonymous access is used." }</small>
                         </>
                     }
                 </FormField>

@@ -1,3 +1,4 @@
+pub mod authorization;
 pub mod namespace;
 pub mod resource_limit;
 pub mod secret;

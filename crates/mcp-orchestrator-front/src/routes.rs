@@ -40,6 +40,13 @@ pub enum Route {
     #[at("/resource-limits/:name")]
     ResourceLimitDetail { name: String },
 
+    #[at("/authorizations")]
+    AuthorizationList,
+    #[at("/authorizations/create")]
+    AuthorizationCreate,
+    #[at("/authorizations/:namespace/:name")]
+    AuthorizationDetail { namespace: String, name: String },
+
     #[not_found]
     #[at("/404")]
     NotFound,
