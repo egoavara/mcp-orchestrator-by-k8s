@@ -2,7 +2,10 @@ use kube::Client;
 
 use crate::{
     error::AppError,
-    storage::{McpTemplateStore, NamespaceStore, ResourceLimitStore, SecretStore},
+    storage::{
+        McpTemplateStore, NamespaceStore, ResourceLimitStore, SecretStore,
+        store_authorization::AuthorizationStore,
+    },
 };
 
 #[derive(Clone)]
@@ -25,6 +28,13 @@ impl KubeStore {
 
     pub fn default_namespace(&self) -> &str {
         &self.default_namespace
+    }
+
+    pub fn target_namespace(&self, namespace: Option<String>) -> String {
+        namespace
+            .as_deref()
+            .unwrap_or(&self.default_namespace)
+            .to_string()
     }
 
     pub fn namespaces(&self) -> NamespaceStore {
@@ -53,6 +63,11 @@ impl KubeStore {
     //     let ns = namespace.unwrap_or_else(|| self.default_namespace.clone());
     //     McpServerStore::new(self.client.clone(), ns)
     // }
+
+    pub fn authorization(&self, namespace: Option<String>) -> AuthorizationStore {
+        let ns = namespace.unwrap_or_else(|| self.default_namespace.clone());
+        AuthorizationStore::new(self.client.clone(), ns)
+    }
 
     pub async fn ensure_default_namespace(&self) -> Result<(), AppError> {
         self.namespaces().ensure_default_namespace().await?;

@@ -1,32 +1,40 @@
 use std::fmt::Display;
 
 use axum::{
-    body::Bytes,
+    body::{Body, Bytes},
     extract::{Path, Request, State},
-    http,
-    http::Response,
+    http::{self, Response},
 };
-use http_body::Body;
+use axum_extra::{
+    TypedHeader,
+    headers::{Authorization, authorization::Bearer},
+};
 use http_body_util::{BodyExt, Full};
 use rmcp::transport::common::http_header::{
     EVENT_STREAM_MIME_TYPE, HEADER_LAST_EVENT_ID, HEADER_SESSION_ID,
 };
 
-use crate::http::mcp::utils::{BoxResponse, sse_stream_response};
+use crate::{
+    http::mcp::utils::{BoxResponse, sse_stream_response},
+    podmcp::PodMcpRequest,
+};
 use crate::{
     http::mcp::utils::{get_session_manager, internal_error_response},
     state::AppState,
 };
 
-pub async fn handler<B>(
+pub async fn handler(
     State(state): State<AppState>,
     Path((namespace, name)): Path<(String, String)>,
-    request: Request<B>,
-) -> Result<BoxResponse, BoxResponse>
-where
-    B: Body + Send + 'static,
-    B::Error: Display,
-{
+    auth: Option<TypedHeader<Authorization<Bearer>>>,
+    request: Request<Body>,
+) -> Result<BoxResponse, BoxResponse> {
+    let req = PodMcpRequest {
+        token: auth
+            .as_ref()
+            .map(|TypedHeader(auth)| auth.token().to_string()),
+        audience: state.config.auth.audience.clone(),
+    };
     let session_manager = get_session_manager(&state, &namespace, &name).await?;
 
     // check accept header
@@ -61,7 +69,7 @@ where
     };
     // check if session exists
     let has_session = session_manager
-        .has_session(&session_id)
+        .has_session(&session_id, req)
         .await
         .map_err(internal_error_response("check session"))?;
     if !has_session {

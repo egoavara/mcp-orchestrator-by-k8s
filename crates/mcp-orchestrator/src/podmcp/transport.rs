@@ -24,7 +24,7 @@ use tokio::sync::{
 use tokio_stream::wrappers::BroadcastStream;
 
 use crate::{
-    podmcp::{McpPodError, PodMcp},
+    podmcp::{McpPodError, PodMcp, PodMcpRequest},
     storage::{annotations::ANNOTATION_LAST_ACCESS_AT, store::KubeStore},
 };
 

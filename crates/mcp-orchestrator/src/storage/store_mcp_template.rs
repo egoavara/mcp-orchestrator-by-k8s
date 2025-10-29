@@ -24,6 +24,7 @@ use crate::{
             RESOURCE_TYPE_PREFIX_MCP_TEMPLATE, RESOURCE_TYPE_RESOURCE_LIMIT, RESOURCE_TYPE_SECRET,
         },
         store::KubeStore,
+        store_authorization::{self, AuthorizationData, AuthorizationStore},
         util_delete::{DeleteOption, DeleteResult},
         util_list::ListOption,
         util_name::{decode_k8sname, encode_k8sname},
@@ -39,6 +40,7 @@ const DATA_COMMAND: &str = "command";
 const DATA_ARGS: &str = "args";
 const DATA_SECRET_ENVS: &str = "secret_env";
 const DATA_RESOURCE_LIMIT_NAME: &str = "resource_limit_name";
+const DATA_AUTHORIZATION_NAME: &str = "authorization_name";
 const DATA_VOLUME_MOUNTS: &str = "volume_mounts";
 const DATA_SECRET_MOUNTS: &str = "secret_mounts";
 
@@ -65,6 +67,7 @@ pub struct McpTemplateData {
     pub envs: HashMap<String, String>,
     pub secret_envs: Vec<String>,
     pub resource_limit_name: String,
+    pub authorization_name: String,
     pub volume_mounts: Vec<v1::VolumeMount>,
     pub secret_mounts: Vec<v1::SecretMount>,
     pub created_at: DateTime<Utc>,
@@ -78,6 +81,7 @@ impl McpTemplateData {
         let args: Vec<String> = parse_data_elem(&cm.data, DATA_ARGS)?;
         let secret_envs: Vec<String> = parse_data_elem(&cm.data, DATA_SECRET_ENVS)?;
         let resource_limit_name: String = parse_data_elem(&cm.data, DATA_RESOURCE_LIMIT_NAME)?;
+        let authorization_name: String = parse_data_elem(&cm.data, DATA_AUTHORIZATION_NAME)?;
         let volume_mounts: Vec<v1::VolumeMount> = parse_data_elem(&cm.data, DATA_VOLUME_MOUNTS)?;
         let secret_mounts: Vec<v1::SecretMount> = parse_data_elem(&cm.data, DATA_SECRET_MOUNTS)?;
 
@@ -113,6 +117,7 @@ impl McpTemplateData {
             envs,
             secret_envs,
             resource_limit_name,
+            authorization_name,
             volume_mounts,
             secret_mounts,
             created_at: cm
@@ -158,12 +163,29 @@ impl McpTemplateData {
         Ok(secrets)
     }
 
+    pub async fn get_authorization(
+        &self,
+        client: &KubeStore,
+    ) -> Result<AuthorizationData, AppError> {
+        let store_auth = client.authorization(Some(self.namespace.clone()));
+        let Some(authorization) = store_auth.get(&self.authorization_name).await? else {
+            tracing::error!("Authorization {} not found", self.authorization_name);
+            return Err(AppError::Internal(format!(
+                "Authorization {} required by McpTemplate {}/{} not found",
+                self.authorization_name, self.namespace, self.name
+            )));
+        };
+        Ok(authorization)
+    }
+
     pub async fn to_pod(
         &self,
         session_id: &SessionId,
         client: &KubeStore,
-    ) -> Result<Pod, AppError> {
+    ) -> Result<(Pod, AuthorizationData), AppError> {
         let resource_limit_store = client.resource_limits();
+        let store_auth = client.authorization(Some(self.namespace.clone()));
+
         let Some(resource_limit) = resource_limit_store.get(&self.resource_limit_name).await?
         else {
             tracing::error!("ResourceLimit {} not found", self.resource_limit_name);
@@ -178,6 +200,8 @@ impl McpTemplateData {
             &self.secret_mounts,
         )
         .await?;
+
+        let authorization = self.get_authorization(client).await?;
 
         let mut envs = HashMap::new();
 
@@ -237,26 +261,30 @@ impl McpTemplateData {
                 resources: Some(requirement),
                 ..Default::default()
             }],
+            service_account_name: authorization.sa_name.clone(),
             node_selector: resource_limit.node_selector.clone(),
             affinity: resource_limit.node_affinity.clone(),
             ..Default::default()
         };
 
-        Ok(Pod {
-            metadata: ObjectMeta {
-                name: Some(session_id.to_string()),
-                namespace: Some(self.namespace.clone()),
-                labels: Some(
-                    setup_labels(RESOURCE_TYPE_MCP_SERVER, std::iter::empty())
-                        .chain(vec![(LABEL_SESSION_ID.to_string(), session_id.to_string())])
-                        .collect(),
-                ),
-                owner_references: Some(vec![self.raw.controller_owner_ref(&()).unwrap()]),
+        Ok((
+            Pod {
+                metadata: ObjectMeta {
+                    name: Some(session_id.to_string()),
+                    namespace: Some(self.namespace.clone()),
+                    labels: Some(
+                        setup_labels(RESOURCE_TYPE_MCP_SERVER, std::iter::empty())
+                            .chain(vec![(LABEL_SESSION_ID.to_string(), session_id.to_string())])
+                            .collect(),
+                    ),
+                    owner_references: Some(vec![self.raw.controller_owner_ref(&()).unwrap()]),
+                    ..Default::default()
+                },
+                spec: Some(pod_spec),
                 ..Default::default()
             },
-            spec: Some(pod_spec),
-            ..Default::default()
-        })
+            authorization,
+        ))
     }
 }
 
@@ -273,6 +301,7 @@ pub struct McpTemplateCreate {
     pub envs: HashMap<String, String>,
     pub secret_envs: Vec<String>,
     pub resource_limit_name: String,
+    pub authorization_name: String,
     pub volume_mounts: Vec<v1::VolumeMount>,
     pub secret_mounts: Vec<v1::SecretMount>,
 }
@@ -304,6 +333,8 @@ impl McpTemplateStore {
         let api = self.api();
         let resource_limit_store =
             ResourceLimitStore::new(self.client.clone(), self.default_namespace.clone());
+        let store_authorization =
+            AuthorizationStore::new(self.client.clone(), self.target_namespace.clone());
 
         let resource_limit = resource_limit_store
             .get(&data.resource_limit_name)
@@ -320,6 +351,16 @@ impl McpTemplateStore {
             &data.secret_mounts,
         )
         .await?;
+        let store_authorization = AuthorizationStore::new(self.client.clone(), self.target_namespace.clone());
+        let authorization = store_authorization
+            .get(&data.authorization_name)
+            .await?
+            .ok_or_else(|| {
+                AppError::NotFound(format!(
+                    "Authorization {} required by McpTemplate {}/{} not found",
+                    data.authorization_name, self.target_namespace, name
+                ))
+            })?;
 
         let configmap = ConfigMap {
             metadata: ObjectMeta {
@@ -351,6 +392,7 @@ impl McpTemplateStore {
                     data_elem(DATA_ARGS, &data.args)?,
                     data_elem(DATA_SECRET_ENVS, &data.secret_envs)?,
                     data_elem(DATA_RESOURCE_LIMIT_NAME, &data.resource_limit_name)?,
+                    data_elem(DATA_AUTHORIZATION_NAME, &data.authorization_name)?,
                     data_elem(DATA_VOLUME_MOUNTS, &data.volume_mounts)?,
                     data_elem(DATA_SECRET_MOUNTS, &data.secret_mounts)?,
                 ]

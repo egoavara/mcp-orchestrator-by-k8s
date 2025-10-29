@@ -20,6 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "../../spec/mcp_server.proto",
             "../../spec/secret.proto",
             "../../spec/resource_limit.proto",
+            "../../spec/authorization.proto",
         ],
         &["../../spec"],
     )?;

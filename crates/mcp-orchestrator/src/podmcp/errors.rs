@@ -42,4 +42,7 @@ pub enum McpPodError {
 
     #[error("Failed to send message to pod")]
     SendTransportError,
+
+    #[error("Authorization failed: {reason}")]
+    AuthorizationFailed { reason: String },
 }

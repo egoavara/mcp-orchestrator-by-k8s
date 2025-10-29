@@ -14,6 +14,7 @@ message CreateMcpTemplateRequest {
   map<string, string> envs = 7;
   repeated string secret_envs = 8;
   string resource_limit_name = 9;
+  optional string authorization_name = 12;
   repeated VolumeMount volume_mounts = 10;
   repeated SecretMount secret_mounts = 11;
 }
@@ -56,6 +57,7 @@ message McpTemplateResponse {
   map<string, string> envs = 7;
   repeated string secret_envs = 8;
   string resource_limit_name = 9;
+  string authorization_name = 14;
   repeated VolumeMount volume_mounts = 10;
   repeated SecretMount secret_mounts = 11;
   string created_at = 12;

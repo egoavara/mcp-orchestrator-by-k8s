@@ -1,8 +1,9 @@
 use crate::components::Layout;
 use crate::pages::{
-    Home, NamespaceCreate, NamespaceDetail, NamespaceList, ResourceLimitCreate,
-    ResourceLimitDetail, ResourceLimitList, SecretCreate, SecretDetail, SecretList, SecretUpdate,
-    TemplateDetail, TemplateForm, TemplateList,
+    AuthorizationCreate, AuthorizationDetail, AuthorizationList, Home, NamespaceCreate,
+    NamespaceDetail, NamespaceList, ResourceLimitCreate, ResourceLimitDetail, ResourceLimitList,
+    SecretCreate, SecretDetail, SecretList, SecretUpdate, TemplateDetail, TemplateForm,
+    TemplateList,
 };
 use crate::routes::Route;
 use yew::prelude::*;
@@ -47,6 +48,11 @@ fn switch(routes: Route) -> Html {
         Route::ResourceLimitList => html! { <ResourceLimitList /> },
         Route::ResourceLimitCreate => html! { <ResourceLimitCreate /> },
         Route::ResourceLimitDetail { name } => html! { <ResourceLimitDetail name={name} /> },
+        Route::AuthorizationList => html! { <AuthorizationList /> },
+        Route::AuthorizationCreate => html! { <AuthorizationCreate /> },
+        Route::AuthorizationDetail { namespace, name } => {
+            html! { <AuthorizationDetail namespace={namespace} name={name} /> }
+        }
         Route::NotFound => html! { <div class="container"><h2>{"404 - Page Not Found"}</h2></div> },
     }
 }

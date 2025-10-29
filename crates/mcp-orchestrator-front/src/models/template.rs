@@ -12,6 +12,7 @@ pub struct Template {
     pub envs: HashMap<String, String>,
     pub secret_envs: Vec<String>,
     pub resource_limit_name: Option<String>,
+    pub authorization_name: Option<String>,
     pub created_at: String,
     pub deleted_at: Option<String>,
 }
@@ -32,6 +33,11 @@ impl From<McpTemplateResponse> for Template {
             } else {
                 Some(response.resource_limit_name)
             },
+            authorization_name: if response.authorization_name.is_empty() {
+                None
+            } else {
+                Some(response.authorization_name)
+            },
             created_at: response.created_at,
             deleted_at: response.deleted_at,
         }
@@ -48,6 +54,7 @@ pub struct TemplateFormData {
     pub envs: HashMap<String, String>,
     pub secret_envs: Vec<String>,
     pub resource_limit_name: Option<String>,
+    pub authorization_name: Option<String>,
     pub labels: HashMap<String, String>,
 }
 
@@ -73,6 +80,7 @@ impl TemplateFormData {
             envs: self.envs,
             secret_envs: filtered_secret_envs,
             resource_limit_name: self.resource_limit_name.unwrap_or_default(),
+            authorization_name: self.authorization_name,
             volume_mounts: Vec::new(),
             secret_mounts: Vec::new(),
         }

@@ -14,6 +14,12 @@ pub enum LabelQuery {
 }
 
 impl LabelQuery {
+    pub fn equal(key: impl Into<String>, value: impl Into<String>) -> Self {
+        Self::Equal {
+            key: key.into(),
+            value: value.into(),
+        }
+    }
     pub fn to_selector_string(&self) -> Result<String, AppError> {
         match self {
             LabelQuery::Equal { key, value } => Ok(format!("{}={}", label_fullpath(key)?, value)),

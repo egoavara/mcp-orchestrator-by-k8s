@@ -33,6 +33,9 @@ pub fn navbar(props: &NavbarProps) -> Html {
                 <Link<Route> to={Route::ResourceLimitList} classes="nav-link">
                     {"Resource Limits"}
                 </Link<Route>>
+                <Link<Route> to={Route::AuthorizationList} classes="nav-link">
+                    {"Authorizations"}
+                </Link<Route>>
                 {for props.children.iter()}
             </div>
         </nav>

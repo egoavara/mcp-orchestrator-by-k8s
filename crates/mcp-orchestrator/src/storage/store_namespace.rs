@@ -1,11 +1,15 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Duration, Utc};
-use k8s_openapi::api::core::v1::{Namespace, Pod, Secret};
+use k8s_openapi::{
+    List,
+    api::core::v1::{Namespace, Pod, Secret, ServiceAccount},
+};
 use kube::{
     Api, Client, Resource, ResourceExt,
     api::{DeleteParams, ListParams, ObjectMeta, PostParams},
 };
+use proto::mcp::orchestrator::v1::AuthorizationType;
 
 use super::label_query::LabelQuery;
 use super::labels::{LABEL_MANAGED_BY, LABEL_MANAGED_BY_VALUE, setup_labels};
@@ -15,6 +19,7 @@ use crate::{
         label_query::build_label_query,
         labels::{LABEL_MANAGED_BY_QUERY, LABEL_TYPE_OF, is_managed_label},
         resource_type::RESOURCE_TYPE_NAMESPACE,
+        store_authorization::AuthorizationStore,
         util_delete::{DeleteOption, DeleteResult},
         util_list::ListOption,
         utils::{add_safe_finalizer, del_safe_finalizer, interval_timeout},
@@ -69,7 +74,7 @@ impl NamespaceStore {
 
     pub async fn ensure_default_namespace(&self) -> Result<Namespace, AppError> {
         let api = Api::<Namespace>::all(self.client.clone());
-        let mut ns = match api.get(&self.default_namespace).await {
+        let mut default_ns = match api.get(&self.default_namespace).await {
             Ok(ns) => ns,
             Err(kube::Error::Api(resp)) if resp.code == 404 => {
                 // Namespace does not exist, create it
@@ -83,6 +88,7 @@ impl NamespaceStore {
                     },
                     ..Default::default()
                 };
+                tracing::info!("Default namespace '{}' created", self.default_namespace);
                 api.create(&PostParams::default(), &namespace)
                     .await
                     .map_err(AppError::from)?
@@ -90,7 +96,7 @@ impl NamespaceStore {
             Err(err) => return Err(AppError::from(err)),
         };
         {
-            let label_mut = ns.labels_mut();
+            let label_mut = default_ns.labels_mut();
             label_mut.insert(
                 LABEL_MANAGED_BY.to_string(),
                 LABEL_MANAGED_BY_VALUE.to_string(),
@@ -100,11 +106,53 @@ impl NamespaceStore {
                 RESOURCE_TYPE_NAMESPACE.to_string(),
             );
         }
-        ns = api
-            .replace(&self.default_namespace, &PostParams::default(), &ns)
+        default_ns = api
+            .replace(&self.default_namespace, &PostParams::default(), &default_ns)
             .await
             .map_err(AppError::from)?;
-        Ok(ns)
+
+        let mut has_more = true;
+        let mut cursor = None;
+        while has_more {
+            let (data, next_cursor, next_has_more) = self
+                .list(
+                    &[],
+                    ListOption {
+                        after: cursor.clone(),
+                        first: Some(100),
+                    },
+                )
+                .await?;
+            cursor = next_cursor;
+            has_more = next_has_more;
+
+            for ns in data {
+                // Default Authorizer
+                let store_at = AuthorizationStore::new(self.client.clone(), ns.name.clone());
+                let (default, _, _) = store_at
+                    .list(
+                        Some(AuthorizationType::Anonymous),
+                        &[],
+                        ListOption::default(),
+                    )
+                    .await?;
+                if default.is_empty() {
+                    tracing::info!(
+                        "Default anonymous authorizer created, in namespace '{}'",
+                        default_ns.name_any()
+                    );
+                    store_at
+                        .create(
+                            "anonymous",
+                            vec![].into_iter(),
+                            AuthorizationType::Anonymous,
+                            &serde_json::json!({}),
+                        )
+                        .await?;
+                }
+            }
+        }
+        Ok(default_ns)
     }
 
     pub async fn create<L: Iterator<Item = (String, String)>>(
@@ -112,6 +160,7 @@ impl NamespaceStore {
         name: &str,
         labels: L,
     ) -> Result<NamespaceData, AppError> {
+        let store_at = AuthorizationStore::new(self.client.clone(), name.to_string());
         let namespace = Namespace {
             metadata: ObjectMeta {
                 name: Some(name.to_string()),
@@ -121,11 +170,22 @@ impl NamespaceStore {
             ..Default::default()
         };
 
-        self.api
+        let ns = self
+            .api
             .create(&PostParams::default(), &namespace)
             .await
             .map(NamespaceData::from_namespace)
-            .map_err(AppError::from)
+            .map_err(AppError::from)?;
+
+        store_at
+            .create(
+                "anonymous",
+                vec![].into_iter(),
+                AuthorizationType::Anonymous,
+                &serde_json::json!({}),
+            )
+            .await?;
+        Ok(ns)
     }
 
     pub async fn get(&self, name: &str) -> Result<Option<NamespaceData>, AppError> {
