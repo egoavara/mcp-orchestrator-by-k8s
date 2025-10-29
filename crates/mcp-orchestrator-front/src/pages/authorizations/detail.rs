@@ -1,4 +1,4 @@
-use crate::api::authorizations::{delete_authorization, get_authorization};
+use crate::api::authorizations::{delete_authorization, generate_token, get_authorization};
 use crate::components::{ConfirmDialog, ErrorMessage, Loading};
 use crate::models::authorization::Authorization;
 use crate::routes::Route;
@@ -25,6 +25,12 @@ pub fn authorization_detail(props: &Props) -> Html {
     let is_deleting = use_state(|| false);
     let delete_error = use_state(|| Option::<String>::None);
     let navigator = use_navigator().unwrap();
+
+    let show_generate_token = use_state(|| false);
+    let is_generating_token = use_state(|| false);
+    let token_result = use_state(|| Option::<(String, Option<String>)>::None);
+    let token_error = use_state(|| Option::<String>::None);
+    let expire_days = use_state(|| String::from("7"));
 
     let namespace = props.namespace.clone();
     let name = props.name.clone();
@@ -90,11 +96,100 @@ pub fn authorization_detail(props: &Props) -> Html {
         })
     };
 
+    let on_generate_token_click = {
+        let show_generate_token = show_generate_token.clone();
+        let token_result = token_result.clone();
+        let token_error = token_error.clone();
+        Callback::from(move |_| {
+            show_generate_token.set(true);
+            token_result.set(None);
+            token_error.set(None);
+        })
+    };
+
+    let on_expire_days_change = {
+        let expire_days = expire_days.clone();
+        Callback::from(move |e: Event| {
+            let input: web_sys::HtmlInputElement = e.target_unchecked_into();
+            expire_days.set(input.value());
+        })
+    };
+
+    let on_generate_token_submit = {
+        let is_generating_token = is_generating_token.clone();
+        let token_result = token_result.clone();
+        let token_error = token_error.clone();
+        let expire_days = expire_days.clone();
+        let namespace = namespace.clone();
+        let name = name.clone();
+
+        Callback::from(move |e: SubmitEvent| {
+            e.prevent_default();
+
+            let days = (*expire_days).parse::<i64>().ok();
+            if days.is_none() || days.unwrap() < 1 || days.unwrap() > 365 {
+                token_error.set(Some("Expire days must be between 1 and 365".to_string()));
+                return;
+            }
+
+            is_generating_token.set(true);
+            token_error.set(None);
+            let is_generating_token = is_generating_token.clone();
+            let token_result = token_result.clone();
+            let token_error = token_error.clone();
+            let namespace = namespace.clone();
+            let name = name.clone();
+
+            wasm_bindgen_futures::spawn_local(async move {
+                match generate_token(namespace, name, days).await {
+                    Ok(result) => {
+                        token_result.set(Some(result));
+                        is_generating_token.set(false);
+                    }
+                    Err(e) => {
+                        token_error.set(Some(e));
+                        is_generating_token.set(false);
+                    }
+                }
+            });
+        })
+    };
+
+    let on_generate_token_close = {
+        let show_generate_token = show_generate_token.clone();
+        Callback::from(move |_| {
+            show_generate_token.set(false);
+        })
+    };
+
+    let on_copy_token = {
+        let token_result = token_result.clone();
+        Callback::from(move |_| {
+            if let Some((token, _)) = &*token_result {
+                let window = web_sys::window().unwrap();
+                let navigator = window.navigator();
+                let clipboard = navigator.clipboard();
+                let _ = clipboard.write_text(token);
+            }
+        })
+    };
+
     html! {
         <div class="container">
             <div class="header">
                 <h1>{ "Authorization Details" }</h1>
                 <div style="display: flex; gap: 0.75rem;">
+                    { match &*load_state {
+                        LoadState::Loaded(auth) if auth.auth_type == 1 => html! {
+                            <button
+                                class="btn-primary"
+                                onclick={on_generate_token_click}
+                            >
+                                { "Generate Token" }
+                            </button>
+                        },
+                        _ => html! {}
+                    }}
                     <button
                         class="btn-danger"
                         onclick={on_delete_click}
@@ -186,6 +281,84 @@ pub fn authorization_detail(props: &Props) -> Html {
                 on_cancel={on_delete_cancel}
                 show={*show_delete_confirm}
             />
+
+            { if *show_generate_token {
+                let on_close_clone = on_generate_token_close.clone();
+                html! {
+                    <div class="modal-overlay" onclick={on_generate_token_close.clone()}>
+                        <div class="modal-content" onclick={|e: MouseEvent| e.stop_propagation()}>
+                            <div class="modal-header">
+                                <h2>{ "Generate Token" }</h2>
+                                <button class="btn-secondary-small" onclick={on_close_clone}>{ "×" }</button>
+                            </div>
+
+                            { if let Some(error) = &*token_error {
+                                html! { <ErrorMessage message={error.clone()} /> }
+                            } else { html! {} }}
+
+                            { if let Some((token, expire_at)) = &*token_result {
+                                html! {
+                                    <div class="token-result">
+                                        <div class="detail-section">
+                                            <h3>{ "Token Generated Successfully" }</h3>
+                                            <div class="detail-field">
+                                                <label>{ "Token:" }</label>
+                                                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                                    <pre class="code-block" style="flex: 1; margin: 0; overflow-x: auto;">{ token }</pre>
+                                                    <button class="btn-secondary-small" onclick={on_copy_token}>{ "Copy" }</button>
+                                                </div>
+                                            </div>
+                                            { if let Some(expire) = expire_at {
+                                                html! {
+                                                    <div class="detail-field">
+                                                        <label>{ "Expires At:" }</label>
+                                                        <span>{ expire }</span>
+                                                    </div>
+                                                }
+                                            } else { html! {} }}
+                                            <p class="form-help">{ "⚠️ Save this token securely. It will not be shown again." }</p>
+                                        </div>
+                                    </div>
+                                }
+                            } else {
+                                html! {
+                                    <form onsubmit={on_generate_token_submit} class="form">
+                                        <div class="field">
+                                            <label>{ "Expiration (days) *" }</label>
+                                            <input
+                                                type="number"
+                                                value={(*expire_days).clone()}
+                                                onchange={on_expire_days_change}
+                                                min="1"
+                                                max="365"
+                                                required={true}
+                                            />
+                                            <small class="form-help">{ "Token will expire after this many days (1-365)" }</small>
+                                        </div>
+
+                                        <div class="form-actions">
+                                            <button
+                                                type="submit"
+                                                class="btn-primary"
+                                                disabled={*is_generating_token}
+                                            >
+                                                { if *is_generating_token { "Generating..." } else { "Generate" } }
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="btn-secondary"
+                                                onclick={on_generate_token_close}
+                                            >
+                                                { "Cancel" }
+                                            </button>
+                                        </div>
+                                    </form>
+                                }
+                            }}
+                        </div>
+                    </div>
+                }
+            } else { html! {} }}
         </div>
     }
 }

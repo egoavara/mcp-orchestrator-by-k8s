@@ -2,8 +2,8 @@ use crate::api::client::grpc_web_call;
 use crate::models::authorization::{Authorization, AuthorizationFormData};
 use proto_web::mcp::orchestrator::v1::{
     AuthorizationResponse, CreateAuthorizationRequest, DeleteAuthorizationRequest,
-    DeleteAuthorizationResponse, GetAuthorizationRequest, ListAuthorizationsRequest,
-    ListAuthorizationsResponse,
+    DeleteAuthorizationResponse, GenerateTokenRequest, GenerateTokenResponse,
+    GetAuthorizationRequest, ListAuthorizationsRequest, ListAuthorizationsResponse,
 };
 
 pub async fn create_authorization(form: AuthorizationFormData) -> Result<Authorization, String> {
@@ -73,6 +73,33 @@ pub async fn delete_authorization(namespace: String, name: String) -> Result<Str
     } else {
         Err(response.message)
     }
+}
+
+pub async fn generate_token(
+    namespace: String,
+    name: String,
+    expire_days: Option<i64>,
+) -> Result<(String, Option<String>), String> {
+    let expire_duration = expire_days.map(|days| prost_wkt_types::Duration {
+        seconds: days * 24 * 60 * 60,
+        nanos: 0,
+    });
+
+    let request = GenerateTokenRequest {
+        namespace: Some(namespace),
+        name,
+        expire_duration,
+    };
+
+    let response: GenerateTokenResponse =
+        grpc_web_call("/mcp.orchestrator.v1.McpOrchestratorService/GenerateToken", request)
+            .await?;
+
+    let expire_at = response
+        .expire_at
+        .map(|t| format!("{}.{:09}Z", t.seconds, t.nanos));
+
+    Ok((response.token, expire_at))
 }
 
 fn from_proto_authorization(proto: AuthorizationResponse) -> Authorization {
