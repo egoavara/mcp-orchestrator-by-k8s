@@ -45,3 +45,48 @@ pub fn convert_to_any<S: Serialize + ?Sized>(value: &S) -> Result<Any, Status> {
         value: bytes,
     })
 }
+
+// pub fn to_wkt_time(dt: chrono::DateTime<chrono::Utc>) -> prost_wkt_types::Timestamp {
+//     prost_wkt_types::Timestamp {
+//         seconds: dt.timestamp(),
+//         nanos: dt.timestamp_subsec_nanos() as i32,
+//     }
+// }
+
+// pub fn to_wkt_time(dt: chrono::DateTime<chrono::Utc>) -> prost_wkt_types::Timestamp {
+//     prost_wkt_types::Timestamp {
+//         seconds: dt.timestamp(),
+//         nanos: dt.timestamp_subsec_nanos() as i32,
+//     }
+// }
+
+pub trait ProtoWktTime {
+    fn to_wkt_time(&self) -> prost_wkt_types::Timestamp;
+}
+
+impl<Tz: chrono::TimeZone> ProtoWktTime for chrono::DateTime<Tz> {
+    fn to_wkt_time(&self) -> prost_wkt_types::Timestamp {
+        let tx = self.with_timezone(&chrono::Utc);
+        prost_wkt_types::Timestamp {
+            seconds: tx.timestamp(),
+            nanos: tx.timestamp_subsec_nanos() as i32,
+        }
+    }
+}
+
+impl ProtoWktTime for chrono::NaiveDateTime {
+    fn to_wkt_time(&self) -> prost_wkt_types::Timestamp {
+        let dt = self.and_utc();
+        prost_wkt_types::Timestamp {
+            seconds: dt.timestamp(),
+            nanos: dt.timestamp_subsec_nanos() as i32,
+        }
+    }
+}
+
+impl ProtoWktTime for k8s_openapi::apimachinery::pkg::apis::meta::v1::Time {
+    fn to_wkt_time(&self) -> prost_wkt_types::Timestamp {
+        let dt = self.0.clone();
+        dt.to_wkt_time()
+    }
+}

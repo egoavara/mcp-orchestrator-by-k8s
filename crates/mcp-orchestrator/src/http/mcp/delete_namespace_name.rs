@@ -3,10 +3,17 @@ use axum::{
     extract::{Path, Request, State},
     http::{self, Response},
 };
+use axum_extra::{
+    TypedHeader,
+    headers::{Authorization, authorization::Bearer},
+};
 use http_body_util::{BodyExt, Full};
 use rmcp::transport::common::http_header::HEADER_SESSION_ID;
 
-use crate::http::mcp::utils::{BoxResponse, get_session_manager};
+use crate::{
+    http::mcp::utils::{BoxResponse, get_session_manager},
+    podmcp::PodMcpRequest,
+};
 use crate::{
     http::mcp::utils::{accepted_response, internal_error_response},
     state::AppState,
@@ -15,8 +22,15 @@ use crate::{
 pub async fn handler(
     State(state): State<AppState>,
     Path((namespace, name)): Path<(String, String)>,
+    auth: Option<TypedHeader<Authorization<Bearer>>>,
     request: Request<Body>,
 ) -> Result<BoxResponse, BoxResponse> {
+    let req = PodMcpRequest {
+        token: auth
+            .as_ref()
+            .map(|TypedHeader(auth)| auth.token().to_string()),
+        audience: state.config.auth.audience.clone(),
+    };
     let session_manager = get_session_manager(&state, &namespace, &name).await?;
 
     // check session id
@@ -34,7 +48,7 @@ pub async fn handler(
     };
     // close session
     session_manager
-        .close_session(&session_id)
+        .close_session(&session_id, req)
         .await
         .map_err(internal_error_response("close session"))?;
     Ok(accepted_response())

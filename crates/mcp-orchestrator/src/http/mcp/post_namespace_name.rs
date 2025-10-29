@@ -3,6 +3,10 @@ use axum::{
     extract::{Path, Request, State},
     http::{self, Response},
 };
+use axum_extra::{
+    TypedHeader,
+    headers::{Authorization, authorization::Bearer},
+};
 use http_body_util::{BodyExt, Full};
 use rmcp::{
     model::{ClientJsonRpcMessage, ClientRequest, GetExtensions},
@@ -12,20 +16,31 @@ use rmcp::{
     },
 };
 
-use crate::http::mcp::utils::{
-    accepted_response, expect_json, internal_error_response, sse_stream_response,
-    unexpected_message_response,
-};
 use crate::{
     http::mcp::utils::{BoxResponse, get_session_manager},
     state::AppState,
+};
+use crate::{
+    http::mcp::utils::{
+        accepted_response, expect_json, internal_error_response, sse_stream_response,
+        unexpected_message_response,
+    },
+    podmcp::PodMcpRequest,
 };
 
 pub async fn handler(
     State(state): State<AppState>,
     Path((namespace, name)): Path<(String, String)>,
+    auth: Option<TypedHeader<Authorization<Bearer>>>,
     request: Request<Body>,
 ) -> Result<BoxResponse, BoxResponse> {
+    let req = PodMcpRequest {
+        token: auth
+            .as_ref()
+            .map(|TypedHeader(auth)| auth.token().to_string()),
+        audience: state.config.auth.audience.clone(),
+    };
+
     let session_manager = get_session_manager(&state, &namespace, &name).await?;
     // check accept header
     if !request
@@ -75,7 +90,7 @@ pub async fn handler(
     if let Some(session_id) = session_id {
         let session_id = session_id.to_owned().into();
         let has_session = session_manager
-            .has_session(&session_id)
+            .has_session(&session_id, req)
             .await
             .map_err(internal_error_response("check session"))?;
         if !has_session {
@@ -120,7 +135,7 @@ pub async fn handler(
         }
     } else {
         let session_id = session_manager
-            .create_session()
+            .create_session(req)
             .await
             .map_err(internal_error_response("create session"))?;
         if let ClientJsonRpcMessage::Request(req) = &mut message {

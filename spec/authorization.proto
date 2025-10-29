@@ -9,7 +9,6 @@ import "google/protobuf/timestamp.proto";
 enum AuthorizationType {
   ANONYMOUS = 0;
   KUBERNETES_SERVICE_ACCOUNT = 1;
-  OPENID_CONNECT = 2;
 }
 
 message CreateAuthorizationRequest {
@@ -55,6 +54,8 @@ message AuthorizationResponse {
   map<string, string> labels = 3;
   AuthorizationType type = 4;
   string data = 5;
+  google.protobuf.Timestamp created_at = 6;
+  optional google.protobuf.Timestamp deleted_at = 7;
 }
 
 

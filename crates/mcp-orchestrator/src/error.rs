@@ -18,6 +18,13 @@ pub enum AppError {
     #[error("Invalid label key: {0}")]
     InvalidLabelKey(String),
 
+    #[error("Invalid label value: {value} for key: {key}")]
+    InvalidLabelValue{
+        value: String,
+        key: String,
+    },
+
+
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 

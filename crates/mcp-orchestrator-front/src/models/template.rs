@@ -73,6 +73,8 @@ impl TemplateFormData {
             envs: self.envs,
             secret_envs: filtered_secret_envs,
             resource_limit_name: self.resource_limit_name.unwrap_or_default(),
+            // TODO: Add authorization_name field here when needed
+            authorization_name: None,
             volume_mounts: Vec::new(),
             secret_mounts: Vec::new(),
         }

@@ -1,11 +1,15 @@
 use std::{collections::HashMap, sync::Arc};
 
 use futures::Stream;
-use k8s_openapi::api::core::v1::Pod;
+use k8s_openapi::api::{
+    authentication::v1::{TokenReview, TokenReviewSpec},
+    core::v1::{Pod, ServiceAccount},
+};
 use kube::{
     Api,
     api::{DeleteParams, PostParams},
 };
+use proto::mcp::orchestrator::v1::AuthorizationType;
 use rmcp::{
     model::{ClientJsonRpcMessage, ServerJsonRpcMessage},
     transport::{
@@ -17,7 +21,10 @@ use tokio::sync::RwLock;
 
 use crate::{
     podmcp::{McpPodError, PodMcpTransport},
-    storage::{McpTemplateData, store::KubeStore},
+    storage::{
+        McpTemplateData, resource_type::RESOURCE_TYPE_PREFIX_AUTHORIZATION_SA, store::KubeStore,
+        store_authorization::AuthorizationData, util_name::encode_k8sname,
+    },
 };
 
 #[derive(Clone)]
@@ -95,11 +102,19 @@ impl PodMcpSessionManager {
     }
 }
 
+pub struct PodMcpRequest {
+    pub audience: String,
+    pub token: Option<String>,
+}
+
 impl PodMcpSessionManager {
-    pub async fn create_session(&self) -> Result<SessionId, McpPodError> {
+    pub async fn create_session(&self, req: PodMcpRequest) -> Result<SessionId, McpPodError> {
         let id = session_id();
-        let data = self.0.template.to_pod(&id, &self.1.client).await?;
-        self.0.api.create(&PostParams::default(), &data).await?;
+        let (pod, auth) = self.0.template.to_pod(&id, &self.1.client).await?;
+        //
+        self.assert_auth_check(&auth, &req).await?;
+        //
+        self.0.api.create(&PostParams::default(), &pod).await?;
         let transport = PodMcpTransport::connect(
             self.1.client.clone(),
             &self.0.template.namespace,
@@ -128,8 +143,16 @@ impl PodMcpSessionManager {
         Ok(response)
     }
 
-    pub async fn close_session(&self, id: &SessionId) -> Result<(), McpPodError> {
+    pub async fn close_session(
+        &self,
+        id: &SessionId,
+        req: PodMcpRequest,
+    ) -> Result<(), McpPodError> {
         tracing::info!("Deleting pod for session {}", id);
+        //
+        let auth = self.0.template.get_authorization(&self.1.client).await?;
+        self.assert_auth_check(&auth, &req).await?;
+        //
         self.1.transports.write().await.remove(id);
 
         self.0
@@ -140,9 +163,17 @@ impl PodMcpSessionManager {
         Ok(())
     }
 
-    pub async fn has_session(&self, id: &SessionId) -> Result<bool, McpPodError> {
+    pub async fn has_session(
+        &self,
+        id: &SessionId,
+        req: PodMcpRequest,
+    ) -> Result<bool, McpPodError> {
         tracing::debug!("Checking existence of session {}", id);
         let pod = self.0.api.get_opt(id.to_string().as_str()).await?;
+        //
+        let auth = self.0.template.get_authorization(&self.1.client).await?;
+        self.assert_auth_check(&auth, &req).await?;
+        //
         Ok(pod.is_some())
     }
     pub async fn create_stream(
@@ -190,6 +221,71 @@ impl PodMcpSessionManager {
         tracing::debug!(message = ?message, "Accepting message for session {}", id);
         let transport = self.get_handle(id).await?;
         transport.upstream_tx_send(message).await?;
+        Ok(())
+    }
+
+    async fn assert_auth_check(
+        &self,
+        auth: &AuthorizationData,
+        req: &PodMcpRequest,
+    ) -> Result<(), McpPodError> {
+        if auth.r#type == AuthorizationType::Anonymous {
+            return Ok(());
+        }
+        let Some(token) = &req.token else {
+            tracing::debug!("Authorizing pod session failed: token is missing");
+            return Err(McpPodError::AuthorizationFailed {
+                reason: "Authorization token is missing".to_string(),
+            });
+        };
+        let review = Api::<TokenReview>::all(self.1.client.to_client())
+            .create(
+                &PostParams::default(),
+                &TokenReview {
+                    spec: TokenReviewSpec {
+                        token: Some(token.clone()),
+                        audiences: Some(vec![req.audience.clone()]),
+                    },
+                    ..Default::default()
+                },
+            )
+            .await?;
+        let Some(review_status) = review.status else {
+            return Ok(());
+        };
+        if !review_status.authenticated.unwrap_or(false) {
+            return Err(McpPodError::AuthorizationFailed {
+                reason: "Token is not authenticated".to_string(),
+            });
+        }
+        let username = review_status
+            .user
+            .map(|x| x.username.unwrap_or_default())
+            .unwrap_or_default();
+        let expected_username = format!(
+            "system:serviceaccount:{}:{}",
+            self.0.template.namespace,
+            encode_k8sname(
+                RESOURCE_TYPE_PREFIX_AUTHORIZATION_SA,
+                &self.0.template.authorization_name
+            )
+        );
+        if username != expected_username {
+            tracing::info!(
+                "Authorization failed: expected service account {}, got {}",
+                format!(
+                    "system:serviceaccount:{}:{}",
+                    self.0.template.namespace, self.0.template.authorization_name
+                ),
+                username
+            );
+            return Err(McpPodError::AuthorizationFailed {
+                reason: format!(
+                    "Token username {} does not match expected service account",
+                    username
+                ),
+            });
+        }
         Ok(())
     }
 }

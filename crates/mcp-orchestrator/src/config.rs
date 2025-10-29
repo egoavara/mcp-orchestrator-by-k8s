@@ -148,6 +148,15 @@ pub struct McpConfig {
     pub keep_alive: Option<Duration>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthConfig {
+    #[serde(default = "default_audience")]
+    pub audience: String,
+
+    #[serde(default = "default_allow_expireless_token")]
+    pub allow_expireless_token: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AppConfig {
     #[serde(default)]
@@ -158,11 +167,15 @@ pub struct AppConfig {
 
     #[serde(default)]
     pub mcp: McpConfig,
+
+    #[serde(default)]
+    pub auth: AuthConfig,
 }
 
 fn default_keep_alive() -> Option<Duration> {
     Some(std::time::Duration::from_secs(30))
 }
+
 fn default_host() -> String {
     "0.0.0.0".to_string()
 }
@@ -177,6 +190,14 @@ fn default_log_level() -> String {
 
 fn default_kube_namespace() -> String {
     "mcp-servers".to_string()
+}
+
+fn default_audience() -> String {
+    "mcp-orchestrator".to_string()
+}
+
+fn default_allow_expireless_token() -> bool {
+    false
 }
 
 impl Default for ServerConfig {
@@ -203,6 +224,15 @@ impl Default for McpConfig {
     fn default() -> Self {
         Self {
             keep_alive: default_keep_alive(),
+        }
+    }
+}
+
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self {
+            audience: default_audience(),
+            allow_expireless_token: default_allow_expireless_token(),
         }
     }
 }

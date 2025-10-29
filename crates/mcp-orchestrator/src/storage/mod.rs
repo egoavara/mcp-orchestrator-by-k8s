@@ -6,6 +6,7 @@ pub mod resource_type;
 pub mod resource_uname;
 pub mod scheduling_validation;
 pub mod store;
+pub mod store_authorization;
 pub mod store_mcp_template;
 pub mod store_namespace;
 pub mod store_resource_limit;

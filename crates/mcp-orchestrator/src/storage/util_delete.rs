@@ -7,6 +7,7 @@ pub enum DeleteResult {
 
 #[derive(Clone, Default)]
 pub struct DeleteOption {
+    // TODO: finalizer 제거하고 owner_references 처리로 변경
     pub remove_finalizer: Option<bool>,
     pub timeout: Option<Duration>,
 }
