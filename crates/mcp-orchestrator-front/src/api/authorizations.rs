@@ -95,11 +95,35 @@ pub async fn generate_token(
         grpc_web_call("/mcp.orchestrator.v1.McpOrchestratorService/GenerateToken", request)
             .await?;
 
-    let expire_at = response
-        .expire_at
-        .map(|t| format!("{}.{:09}Z", t.seconds, t.nanos));
+    let expire_at = response.expire_at.map(|t| {
+        let date = js_sys::Date::new(&((t.seconds as f64) * 1000.0).into());
+        let year = date.get_utc_full_year();
+        let month = date.get_utc_month() + 1;
+        let day = date.get_utc_date();
+        let hours = date.get_utc_hours();
+        let minutes = date.get_utc_minutes();
+        let seconds = date.get_utc_seconds();
+        format!(
+            "{:04}-{:02}-{:02} {:02}:{:02}:{:02} UTC",
+            year, month, day, hours, minutes, seconds
+        )
+    });
 
     Ok((response.token, expire_at))
+}
+
+fn format_timestamp(t: prost_wkt_types::Timestamp) -> String {
+    let date = js_sys::Date::new(&((t.seconds as f64) * 1000.0).into());
+    let year = date.get_utc_full_year();
+    let month = date.get_utc_month() + 1;
+    let day = date.get_utc_date();
+    let hours = date.get_utc_hours();
+    let minutes = date.get_utc_minutes();
+    let seconds = date.get_utc_seconds();
+    format!(
+        "{:04}-{:02}-{:02} {:02}:{:02}:{:02} UTC",
+        year, month, day, hours, minutes, seconds
+    )
 }
 
 fn from_proto_authorization(proto: AuthorizationResponse) -> Authorization {
@@ -109,12 +133,7 @@ fn from_proto_authorization(proto: AuthorizationResponse) -> Authorization {
         labels: proto.labels,
         auth_type: proto.r#type,
         data: proto.data,
-        created_at: proto
-            .created_at
-            .map(|t| format!("{}.{:09}Z", t.seconds, t.nanos))
-            .unwrap_or_default(),
-        deleted_at: proto
-            .deleted_at
-            .map(|t| format!("{}.{:09}Z", t.seconds, t.nanos)),
+        created_at: proto.created_at.map(format_timestamp).unwrap_or_default(),
+        deleted_at: proto.deleted_at.map(format_timestamp),
     }
 }

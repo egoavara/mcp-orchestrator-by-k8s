@@ -2078,6 +2078,7 @@ dependencies = [
  "bytes",
  "gloo-net 0.4.0",
  "gloo-timers 0.3.0",
+ "js-sys",
  "log",
  "prost",
  "prost-wkt-types",
