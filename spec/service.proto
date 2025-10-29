@@ -7,6 +7,7 @@ import "mcp_server.proto";
 import "namespace.proto";
 import "secret.proto";
 import "resource_limit.proto";
+import "authorization.proto";
 
 service McpOrchestratorService {
   rpc CreateMcpTemplate(CreateMcpTemplateRequest) returns (McpTemplateResponse);
@@ -32,4 +33,11 @@ service McpOrchestratorService {
   rpc GetResourceLimit(GetResourceLimitRequest) returns (ResourceLimitResponse);
   rpc ListResourceLimits(ListResourceLimitsRequest) returns (ListResourceLimitsResponse);
   rpc DeleteResourceLimit(DeleteResourceLimitRequest) returns (DeleteResourceLimitResponse);
+  
+  rpc CreateAuthorization(CreateAuthorizationRequest) returns (AuthorizationResponse);
+  rpc GetAuthorization(GetAuthorizationRequest) returns (AuthorizationResponse);
+  rpc ListAuthorizations(ListAuthorizationsRequest) returns (ListAuthorizationsResponse);
+  rpc DeleteAuthorization(DeleteAuthorizationRequest) returns (DeleteAuthorizationResponse);
+
+  rpc GenerateToken(GenerateTokenRequest) returns (GenerateTokenResponse);
 }

@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package mcp.orchestrator.v1;
+
+import "common.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+enum AuthorizationType {
+  ANONYMOUS = 0;
+  KUBERNETES_SERVICE_ACCOUNT = 1;
+  OPENID_CONNECT = 2;
+}
+
+message CreateAuthorizationRequest {
+  optional string namespace = 1;
+  string name = 2;
+  map<string, string> labels = 3;
+  AuthorizationType type = 4;
+  optional string data = 5;
+}
+
+message GetAuthorizationRequest {
+  optional string namespace = 1;
+  string name = 2;
+}
+
+message ListAuthorizationsRequest {
+  optional string namespace = 1;
+  LabelQuery label = 2;
+  optional AuthorizationType type = 3;
+  optional int32 first = 4;
+  optional string after = 5;
+}
+
+message ListAuthorizationsResponse {
+  repeated AuthorizationResponse data = 1;
+  optional string endCursor = 2;
+  bool hasNextPage = 3;
+}
+
+message DeleteAuthorizationRequest {
+  optional string namespace = 1;
+  string name = 2;
+}
+
+message DeleteAuthorizationResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message AuthorizationResponse {
+  string namespace = 1;
+  string name = 2;
+  map<string, string> labels = 3;
+  AuthorizationType type = 4;
+  string data = 5;
+}
+
+
+message GenerateTokenRequest {
+  optional string namespace = 1;
+  string name = 2;
+  optional google.protobuf.Duration expire_duration = 3;
+}
+
+message GenerateTokenResponse {
+  string token = 1;
+  optional google.protobuf.Timestamp expire_at = 2;
+}
