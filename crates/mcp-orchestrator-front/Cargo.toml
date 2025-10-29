@@ -36,6 +36,7 @@ web-sys = { version = "0.3", features = [
     "Navigator",
     "Clipboard",
 ] }
+js-sys = "0.3"
 
 tonic-web-wasm-client = "0.8"
 proto-web = { path = "../proto-web" }
