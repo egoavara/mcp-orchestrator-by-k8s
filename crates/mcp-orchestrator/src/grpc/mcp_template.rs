@@ -23,6 +23,7 @@ fn from(rl: McpTemplateData) -> McpTemplateResponse {
         envs: rl.envs,
         secret_envs: rl.secret_envs,
         resource_limit_name: rl.resource_limit_name,
+        authorization_name: rl.authorization_name,
         volume_mounts: rl.volume_mounts,
         secret_mounts: rl.secret_mounts,
         created_at: rl.created_at.to_rfc3339(),
@@ -34,7 +35,7 @@ pub async fn create_mcp_template(
     state: &AppState,
     request: Request<CreateMcpTemplateRequest>,
 ) -> Result<Response<McpTemplateResponse>, Status> {
-    let req = request.into_inner();
+    let req: CreateMcpTemplateRequest = request.into_inner();
     let store = state.kube_store.mcp_templates(req.namespace.clone());
     tracing::info!("Creating MCP template: {:?}", req.name);
     tracing::debug!("MCP template request: {:?}", req);
@@ -50,6 +51,7 @@ pub async fn create_mcp_template(
                 envs: req.envs,
                 secret_envs: req.secret_envs,
                 resource_limit_name: req.resource_limit_name,
+                authorization_name: req.authorization_name.unwrap_or("anonymous".to_string()),
                 volume_mounts: req.volume_mounts,
                 secret_mounts: req.secret_mounts,
             },

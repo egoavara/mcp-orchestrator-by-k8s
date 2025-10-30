@@ -1,6 +1,6 @@
+use crate::routes::Route;
 use yew::prelude::*;
 use yew_router::prelude::*;
-use crate::routes::Route;
 
 #[derive(Properties, PartialEq)]
 pub struct NavbarProps {
@@ -32,6 +32,9 @@ pub fn navbar(props: &NavbarProps) -> Html {
                 </Link<Route>>
                 <Link<Route> to={Route::ResourceLimitList} classes="nav-link">
                     {"Resource Limits"}
+                </Link<Route>>
+                <Link<Route> to={Route::AuthorizationList} classes="nav-link">
+                    {"Authorizations"}
                 </Link<Route>>
                 {for props.children.iter()}
             </div>

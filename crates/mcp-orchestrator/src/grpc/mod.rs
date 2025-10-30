@@ -1,4 +1,6 @@
 mod mcp;
+mod mcp_authorization;
+mod mcp_generate_token;
 mod mcp_server;
 mod mcp_template;
 mod namespace;
@@ -51,7 +53,10 @@ impl McpOrchestratorService for GrpcService {
         mcp_template::delete_mcp_template(&self.state, request).await
     }
 
-    async fn get_mcp(&self, _request: Request<McpRequest>) -> Result<Response<McpResponse>, Status> {
+    async fn get_mcp(
+        &self,
+        _request: Request<McpRequest>,
+    ) -> Result<Response<McpResponse>, Status> {
         // mcp_server::get_mcp_server(&self.state, request).await
         todo!()
     }
@@ -153,5 +158,40 @@ impl McpOrchestratorService for GrpcService {
         request: Request<DeleteResourceLimitRequest>,
     ) -> Result<Response<DeleteResourceLimitResponse>, Status> {
         resource_limit::delete_resource_limit(&self.state, request).await
+    }
+
+    async fn create_authorization(
+        &self,
+        request: Request<CreateAuthorizationRequest>,
+    ) -> Result<Response<AuthorizationResponse>, Status> {
+        mcp_authorization::create_authorization(&self.state, request).await
+    }
+
+    async fn list_authorizations(
+        &self,
+        request: Request<ListAuthorizationsRequest>,
+    ) -> Result<Response<ListAuthorizationsResponse>, Status> {
+        mcp_authorization::list_authorizations(&self.state, request).await
+    }
+
+    async fn get_authorization(
+        &self,
+        request: Request<GetAuthorizationRequest>,
+    ) -> Result<Response<AuthorizationResponse>, Status> {
+        mcp_authorization::get_authorization(&self.state, request).await
+    }
+
+    async fn delete_authorization(
+        &self,
+        request: Request<DeleteAuthorizationRequest>,
+    ) -> Result<Response<DeleteAuthorizationResponse>, Status> {
+        mcp_authorization::delete_authorization(&self.state, request).await
+    }
+
+    async fn generate_token(
+        &self,
+        request: Request<GenerateTokenRequest>,
+    ) -> Result<Response<GenerateTokenResponse>, Status> {
+        mcp_generate_token::generate_token(&self.state, request).await
     }
 }

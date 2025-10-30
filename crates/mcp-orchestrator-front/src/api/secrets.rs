@@ -1,9 +1,8 @@
 use crate::api::client::grpc_web_call;
 use crate::models::secret::Secret;
 use proto_web::{
-    ListSecretsRequest, ListSecretsResponse,
-    GetSecretRequest, SecretResponse,
-    CreateSecretRequest, UpdateSecretRequest, DeleteSecretRequest, DeleteSecretResponse,
+    CreateSecretRequest, DeleteSecretRequest, DeleteSecretResponse, GetSecretRequest,
+    ListSecretsRequest, ListSecretsResponse, SecretResponse, UpdateSecretRequest,
 };
 
 pub async fn list_secrets(namespace: &str) -> Result<Vec<Secret>, String> {
@@ -20,11 +19,7 @@ pub async fn list_secrets(namespace: &str) -> Result<Vec<Secret>, String> {
     )
     .await?;
 
-    Ok(response
-        .data
-        .into_iter()
-        .map(Secret::from)
-        .collect())
+    Ok(response.data.into_iter().map(Secret::from).collect())
 }
 
 pub async fn get_secret(namespace: &str, name: &str) -> Result<Secret, String> {

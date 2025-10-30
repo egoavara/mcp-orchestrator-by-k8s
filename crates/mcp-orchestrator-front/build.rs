@@ -73,7 +73,8 @@ fn build_frontend_wasm(workspace_dir: &Path, frontend_dir: &Path) {
         panic!("frontend wasm 빌드가 실패했습니다. 'rustup target add wasm32-unknown-unknown'을 먼저 실행하세요.");
     }
 
-    let wasm_path = frontend_target_dir.join("wasm32-unknown-unknown/release/mcp_orchestrator_front.wasm");
+    let wasm_path =
+        frontend_target_dir.join("wasm32-unknown-unknown/release/mcp_orchestrator_front.wasm");
     if !wasm_path.exists() {
         panic!(
             "{} 경로에서 mcp_orchestrator_front.wasm을 찾을 수 없습니다.",
@@ -103,10 +104,12 @@ fn build_frontend_wasm(workspace_dir: &Path, frontend_dir: &Path) {
 fn copy_and_fix_html(from: PathBuf, to: PathBuf) {
     let content = fs::read_to_string(&from)
         .unwrap_or_else(|err| panic!("Failed to read {}: {}", from.display(), err));
-    
-    let fixed_content = content
-        .replace(r#"<link data-trunk rel="css" href="/statics/styles.css">"#, r#"<link rel="stylesheet" href="/statics/styles.css">"#);
-    
+
+    let fixed_content = content.replace(
+        r#"<link data-trunk rel="css" href="/statics/styles.css">"#,
+        r#"<link rel="stylesheet" href="/statics/styles.css">"#,
+    );
+
     fs::write(&to, fixed_content)
         .unwrap_or_else(|err| panic!("Failed to write {}: {}", to.display(), err));
 }

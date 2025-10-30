@@ -1,11 +1,11 @@
-use yew::prelude::*;
-use yew_router::prelude::*;
-use std::collections::HashMap;
 use crate::api::namespaces::create_namespace;
+use crate::components::{ErrorMessage, FormField};
 use crate::routes::Route;
-use crate::components::{FormField, ErrorMessage};
 use crate::utils::validation::validate_name;
 use proto_web::CreateNamespaceRequest;
+use std::collections::HashMap;
+use yew::prelude::*;
+use yew_router::prelude::*;
 
 #[derive(Default, Clone, PartialEq)]
 struct NamespaceFormData {
@@ -30,7 +30,7 @@ pub fn namespace_create() -> Html {
             let mut data = (*form_data).clone();
             data.name = value.clone();
             form_data.set(data);
-            
+
             let mut new_errors = (*errors).clone();
             if let Some(error) = validate_name(&value) {
                 new_errors.insert("name".to_string(), error);
@@ -87,43 +87,44 @@ pub fn namespace_create() -> Html {
         let is_submitting = is_submitting.clone();
         let submit_error = submit_error.clone();
         let navigator = navigator.clone();
-        
+
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
-            
+
             if !errors.is_empty() {
                 return;
             }
-            
+
             let data = (*form_data).clone();
-            
+
             let mut validation_errors = HashMap::new();
             if let Some(error) = validate_name(&data.name) {
                 validation_errors.insert("name".to_string(), error);
             }
-            
+
             if !validation_errors.is_empty() {
                 errors.set(validation_errors);
                 return;
             }
-            
+
             is_submitting.set(true);
             let _errors = errors.clone();
             let is_submitting = is_submitting.clone();
             let submit_error = submit_error.clone();
             let navigator = navigator.clone();
-            
+
             wasm_bindgen_futures::spawn_local(async move {
-                let labels_map: HashMap<String, String> = data.labels
+                let labels_map: HashMap<String, String> = data
+                    .labels
                     .into_iter()
                     .filter(|(k, v)| !k.is_empty() && !v.is_empty())
                     .collect();
-                
+
                 let request = CreateNamespaceRequest {
                     name: data.name.clone(),
                     labels: labels_map,
                 };
-                
+
                 match create_namespace(request).await {
                     Ok(namespace) => {
                         navigator.push(&Route::NamespaceDetail {
@@ -153,11 +154,11 @@ pub fn namespace_create() -> Html {
             } else { html! {} }}
 
             <form onsubmit={on_submit} class="form">
-                <FormField 
+                <FormField
                     label="Namespace Name *"
                     error={errors.get("name").cloned()}
                 >
-                    <input 
+                    <input
                         type="text"
                         value={form_data.name.clone()}
                         onchange={on_name_change}
@@ -170,7 +171,7 @@ pub fn namespace_create() -> Html {
                 <div class="form-section">
                     <label class="section-label">{ "Labels (optional)" }</label>
                     <small class="form-help">{ "Add key-value pairs to organize and filter namespaces" }</small>
-                    
+
                     { for form_data.labels.iter().enumerate().map(|(index, (key, value))| {
                         let on_key_change = {
                             let on_label_key_change = on_label_key_change.clone();
@@ -190,10 +191,10 @@ pub fn namespace_create() -> Html {
                             let on_remove_label = on_remove_label.clone();
                             Callback::from(move |_| on_remove_label(index))
                         };
-                        
+
                         html! {
                             <div class="label-row" key={index}>
-                                <input 
+                                <input
                                     type="text"
                                     value={key.clone()}
                                     onchange={on_key_change}
@@ -201,14 +202,14 @@ pub fn namespace_create() -> Html {
                                     class="label-key"
                                 />
                                 <span>{ "=" }</span>
-                                <input 
+                                <input
                                     type="text"
                                     value={value.clone()}
                                     onchange={on_value_change}
                                     placeholder="value"
                                     class="label-value"
                                 />
-                                <button 
+                                <button
                                     type="button"
                                     onclick={on_remove}
                                     class="btn-danger-small"
@@ -218,8 +219,8 @@ pub fn namespace_create() -> Html {
                             </div>
                         }
                     })}
-                    
-                    <button 
+
+                    <button
                         type="button"
                         onclick={on_add_label}
                         class="btn-secondary-small"
@@ -229,7 +230,7 @@ pub fn namespace_create() -> Html {
                 </div>
 
                 <div class="form-actions">
-                    <button 
+                    <button
                         type="submit"
                         class="btn-primary"
                         disabled={*is_submitting || !errors.is_empty()}

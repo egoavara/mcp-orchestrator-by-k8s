@@ -1,9 +1,9 @@
-use yew::prelude::*;
-use yew_router::prelude::*;
 use crate::api::resource_limits::list_resource_limits;
+use crate::components::{ErrorMessage, Loading};
 use crate::models::resource_limit::ResourceLimit;
 use crate::routes::Route;
-use crate::components::{Loading, ErrorMessage};
+use yew::prelude::*;
+use yew_router::prelude::*;
 
 #[derive(Debug)]
 enum LoadState {

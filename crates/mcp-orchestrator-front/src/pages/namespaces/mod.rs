@@ -1,7 +1,7 @@
-mod list;
 mod create;
 mod detail;
+mod list;
 
-pub use list::NamespaceList;
 pub use create::NamespaceCreate;
 pub use detail::NamespaceDetail;
+pub use list::NamespaceList;

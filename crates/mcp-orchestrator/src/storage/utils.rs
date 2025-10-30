@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
 use chrono::Duration;
+use k8s_openapi::ByteString;
 use kube::{ResourceExt, api::PatchParams};
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::json;
@@ -145,6 +146,31 @@ pub fn data_elem<S: Serialize>(key: &str, data: &S) -> Result<(String, String), 
         .map_err(AppError::SerializationError)
 }
 
+pub fn data_elem_jsonstr(key: &str, data: &str) -> Result<(String, String), AppError> {
+    serde_json::from_str::<serde_json::Value>(data)
+        .map(|_| (key.to_string(), data.to_string()))
+        .map_err(AppError::SerializationError)
+}
+
+pub fn data_elem_ojsonstr<S: AsRef<str>>(
+    key: &str,
+    data: Option<S>,
+) -> Result<(String, String), AppError> {
+    if let Some(data) = data {
+        return data_elem_jsonstr(key, data.as_ref());
+    }
+    Ok((key.to_string(), "null".to_string()))
+}
+
+pub fn data_secret<S: Serialize>(
+    key: &str,
+    data: &S,
+) -> Result<(String, ByteString), AppError> {
+    serde_json::to_vec(data)
+        .map(|v| (key.to_string(), ByteString(v)))
+        .map_err(AppError::SerializationError)
+}
+
 pub fn parse_data_elem<D: DeserializeOwned>(
     data: &Option<BTreeMap<String, String>>,
     key: &str,
@@ -162,4 +188,33 @@ pub fn parse_data_elem<D: DeserializeOwned>(
         )));
     };
     serde_json::from_str::<D>(value).map_err(AppError::SerializationError)
+}
+
+pub fn parse_secret_elem<D: DeserializeOwned>(
+    data: &Option<BTreeMap<String, ByteString>>,
+    key: &str,
+) -> Result<D, AppError> {
+    let Some(map) = data else {
+        return Err(AppError::Internal(format!(
+            "Data map is None, cannot find key {}",
+            key
+        )));
+    };
+    let Some(value) = map.get(key) else {
+        return Err(AppError::Internal(format!(
+            "Key {} not found in data map",
+            key
+        )));
+    };
+    serde_json::from_slice::<D>(value.0.as_ref()).map_err(AppError::SerializationError)
+}
+
+pub fn pick_created_at<R: ResourceExt>(r: &R) -> chrono::DateTime<chrono::Utc> {
+    r.creation_timestamp()
+        .map(|x| x.0)
+        .unwrap_or_else(|| chrono::Utc::now())
+}
+
+pub fn pick_deleted_at<R: ResourceExt>(r: &R) -> Option<chrono::DateTime<chrono::Utc>> {
+    r.meta().deletion_timestamp.as_ref().map(|x| x.0.clone())
 }

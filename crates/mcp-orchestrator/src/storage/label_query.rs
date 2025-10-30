@@ -1,9 +1,7 @@
-
 use crate::{
     error::AppError,
-    storage::labels::{label_fullpath, LABEL_MANAGED_BY, LABEL_MANAGED_BY_VALUE, LABEL_TYPE_OF},
+    storage::labels::{LABEL_MANAGED_BY, LABEL_MANAGED_BY_VALUE, LABEL_TYPE_OF, label_fullpath},
 };
-
 
 #[derive(Debug, Clone)]
 pub enum LabelQuery {
@@ -16,6 +14,12 @@ pub enum LabelQuery {
 }
 
 impl LabelQuery {
+    pub fn equal(key: impl Into<String>, value: impl Into<String>) -> Self {
+        Self::Equal {
+            key: key.into(),
+            value: value.into(),
+        }
+    }
     pub fn to_selector_string(&self) -> Result<String, AppError> {
         match self {
             LabelQuery::Equal { key, value } => Ok(format!("{}={}", label_fullpath(key)?, value)),

@@ -18,6 +18,16 @@ pub enum AppError {
     #[error("Invalid label key: {0}")]
     InvalidLabelKey(String),
 
+    #[error("Invalid label value: {value} for key: {key}")]
+    InvalidLabelValue{
+        value: String,
+        key: String,
+    },
+
+
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
     #[error("JSON Patch error: {0}")]
     Patch(#[from] json_patch::PatchError),
 
@@ -30,6 +40,7 @@ impl IntoResponse for AppError {
         let (status, message) = match &self {
             AppError::NotFound(msg) => (axum::http::StatusCode::NOT_FOUND, msg.clone()),
             AppError::InvalidLabelKey(msg) => (axum::http::StatusCode::BAD_REQUEST, msg.clone()),
+            AppError::InvalidInput(msg) => (axum::http::StatusCode::BAD_REQUEST, msg.clone()),
             AppError::ProtectedNamespace(msg) => (axum::http::StatusCode::FORBIDDEN, msg.clone()),
             _ => (
                 axum::http::StatusCode::INTERNAL_SERVER_ERROR,

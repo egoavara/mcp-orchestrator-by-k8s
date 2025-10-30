@@ -1,5 +1,8 @@
 use std::collections::BTreeMap;
 
+use proto::mcp::orchestrator::v1::AuthorizationType;
+use serde::de::DeserializeOwned;
+
 use crate::{
     error::AppError,
     storage::{label_query::LabelQuery, resource_uname::resource_relpath},
@@ -12,6 +15,7 @@ pub const LABEL_MANAGED_BY_VALUE: &str = "mcp-orchestrator";
 pub const LABEL_MANAGED_BY_QUERY: &str = "app.kubernetes.io/managed-by=mcp-orchestrator";
 
 pub const LABEL_TYPE_OF: &str = "mcp-orchestrator.egoavara.net/type-of";
+pub const LABEL_AUTH_TYPE_OF: &str = "mcp-orchestrator.egoavara.net/auth-type-of";
 
 pub const LABEL_SESSION_ID: &str = "mcp-orchestrator.egoavara.net/session-id";
 
@@ -68,4 +72,44 @@ pub fn is_managed_label(r#typeof: &str, labels: &BTreeMap<String, String>) -> bo
         return false;
     };
     managed_type == LABEL_MANAGED_BY_VALUE && r#typeof == target_typeof
+}
+
+pub fn decode_label(
+    data: Option<&BTreeMap<String, String>>,
+    key: &str,
+) -> Result<String, AppError> {
+    data.and_then(|d| d.get(key).cloned())
+        .ok_or_else(|| AppError::InvalidLabelKey(key.to_string()))
+}
+
+pub fn decode_label_map<R, M: FnOnce(&str) -> Result<R, AppError>>(
+    data: Option<&BTreeMap<String, String>>,
+    key: &str,
+    mapper: M,
+) -> Result<R, AppError> {
+    data.and_then(|d| d.get(key))
+        .ok_or_else(|| AppError::InvalidLabelKey(key.to_string()))
+        .and_then(|v| mapper(v))
+}
+
+pub fn decode_label_optmap<R, M: FnOnce(&str) -> Option<R>>(
+    data: Option<&BTreeMap<String, String>>,
+    key: &str,
+    mapper: M,
+) -> Result<R, AppError> {
+    data.and_then(|d| d.get(key))
+        .ok_or_else(|| AppError::InvalidLabelKey(key.to_string()))
+        .and_then(|v| {
+            mapper(v).ok_or_else(|| AppError::InvalidLabelValue {
+                value: v.to_string(),
+                key: key.to_string(),
+            })
+        })
+}
+
+pub fn label_auth_type_of(auth_type: AuthorizationType) -> (String, String) {
+    (
+        LABEL_AUTH_TYPE_OF.to_string(),
+        auth_type.as_str_name().to_string(),
+    )
 }

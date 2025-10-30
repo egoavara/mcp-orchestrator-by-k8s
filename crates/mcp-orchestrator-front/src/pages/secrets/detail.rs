@@ -1,9 +1,9 @@
-use yew::prelude::*;
-use yew_router::prelude::*;
-use crate::api::secrets::{get_secret, delete_secret};
+use crate::api::secrets::{delete_secret, get_secret};
+use crate::components::{ConfirmDialog, ErrorMessage, Loading};
 use crate::models::secret::Secret;
 use crate::routes::Route;
-use crate::components::{Loading, ErrorMessage, ConfirmDialog};
+use yew::prelude::*;
+use yew_router::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
@@ -25,7 +25,7 @@ pub fn secret_detail(props: &Props) -> Html {
     let is_deleting = use_state(|| false);
     let delete_error = use_state(|| Option::<String>::None);
     let navigator = use_navigator().unwrap();
-    
+
     let namespace = props.namespace.clone();
     let name = props.name.clone();
 
@@ -58,7 +58,7 @@ pub fn secret_detail(props: &Props) -> Html {
         let navigator = navigator.clone();
         let namespace = namespace.clone();
         let name = name.clone();
-        
+
         Callback::from(move |_| {
             is_deleting.set(true);
             let is_deleting = is_deleting.clone();
@@ -67,7 +67,7 @@ pub fn secret_detail(props: &Props) -> Html {
             let navigator = navigator.clone();
             let namespace = namespace.clone();
             let name = name.clone();
-            
+
             wasm_bindgen_futures::spawn_local(async move {
                 match delete_secret(&namespace, &name).await {
                     Ok(_) => {
@@ -98,7 +98,7 @@ pub fn secret_detail(props: &Props) -> Html {
                     <Link<Route> to={Route::SecretEdit { namespace: namespace.clone(), name: name.clone() }}>
                         <button class="btn-primary">{ "Edit Secret" }</button>
                     </Link<Route>>
-                    <button 
+                    <button
                         class="btn-danger"
                         onclick={on_delete_click}
                         disabled={*is_deleting}

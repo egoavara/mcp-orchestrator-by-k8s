@@ -1,12 +1,12 @@
 use axum::{
     body::Body,
     extract::Path,
-    http::{header, StatusCode},
+    http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
 use chrono::Duration;
-use mime_guess::{mime, Mime};
-use include_dir::{File};
+use include_dir::File;
+use mime_guess::{Mime, mime};
 
 use crate::assets::STATIC_ASSETS;
 
@@ -38,5 +38,3 @@ pub async fn handler(Path(path): Path<String>) -> impl IntoResponse {
             .unwrap()
     }
 }
-
-

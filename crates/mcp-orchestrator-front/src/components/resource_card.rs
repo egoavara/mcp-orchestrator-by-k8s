@@ -10,9 +10,10 @@ pub struct ResourceCardProps {
 
 #[function_component(ResourceCard)]
 pub fn resource_card(props: &ResourceCardProps) -> Html {
-    let onclick = props.onclick.clone().map(|cb| {
-        Callback::from(move |_| cb.emit(()))
-    });
+    let onclick = props
+        .onclick
+        .clone()
+        .map(|cb| Callback::from(move |_| cb.emit(())));
 
     html! {
         <div class="card" onclick={onclick}>

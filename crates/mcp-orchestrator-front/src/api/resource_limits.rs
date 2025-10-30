@@ -1,9 +1,9 @@
 use crate::api::client::grpc_web_call;
 use crate::models::resource_limit::ResourceLimit;
 use proto_web::{
-    ListResourceLimitsRequest, ListResourceLimitsResponse,
-    GetResourceLimitRequest, ResourceLimitResponse,
     CreateResourceLimitRequest, DeleteResourceLimitRequest, DeleteResourceLimitResponse,
+    GetResourceLimitRequest, ListResourceLimitsRequest, ListResourceLimitsResponse,
+    ResourceLimitResponse,
 };
 
 pub async fn list_resource_limits() -> Result<Vec<ResourceLimit>, String> {
@@ -19,11 +19,7 @@ pub async fn list_resource_limits() -> Result<Vec<ResourceLimit>, String> {
     )
     .await?;
 
-    Ok(response
-        .data
-        .into_iter()
-        .map(ResourceLimit::from)
-        .collect())
+    Ok(response.data.into_iter().map(ResourceLimit::from).collect())
 }
 
 pub async fn get_resource_limit(name: &str) -> Result<ResourceLimit, String> {
@@ -40,7 +36,9 @@ pub async fn get_resource_limit(name: &str) -> Result<ResourceLimit, String> {
     Ok(ResourceLimit::from(response))
 }
 
-pub async fn create_resource_limit(request: CreateResourceLimitRequest) -> Result<ResourceLimit, String> {
+pub async fn create_resource_limit(
+    request: CreateResourceLimitRequest,
+) -> Result<ResourceLimit, String> {
     let response: ResourceLimitResponse = grpc_web_call(
         "/mcp.orchestrator.v1.McpOrchestratorService/CreateResourceLimit",
         request,

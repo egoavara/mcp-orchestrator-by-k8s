@@ -1,4 +1,4 @@
-use proto_web::{ResourceLimitResponse, ResourceLimit as ProtoResourceLimit};
+use proto_web::{ResourceLimit as ProtoResourceLimit, ResourceLimitResponse};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -18,6 +18,8 @@ pub struct ResourceLimitSpec {
     pub cpu_limit: Option<String>,
     pub memory_limit: Option<String>,
     pub ephemeral_storage: Option<String>,
+    pub node_selector: Option<String>,
+    pub node_affinity: Option<String>,
 }
 
 impl From<ResourceLimitResponse> for ResourceLimit {
@@ -29,6 +31,20 @@ impl From<ResourceLimitResponse> for ResourceLimit {
             memory_limit: None,
             ephemeral_storage: None,
             volumes: HashMap::new(),
+            node_selector: HashMap::new(),
+            node_affinity: None,
+        });
+
+        let node_selector_yaml = if !limits.node_selector.is_empty() {
+            serde_yaml::to_string(&limits.node_selector).ok()
+        } else {
+            None
+        };
+
+        let node_affinity_yaml = limits.node_affinity.as_ref().and_then(|json_str| {
+            serde_json::from_str::<serde_json::Value>(json_str)
+                .ok()
+                .and_then(|v| serde_yaml::to_string(&v).ok())
         });
 
         Self {
@@ -40,6 +56,8 @@ impl From<ResourceLimitResponse> for ResourceLimit {
                 cpu_limit: limits.cpu_limit,
                 memory_limit: limits.memory_limit,
                 ephemeral_storage: limits.ephemeral_storage,
+                node_selector: node_selector_yaml,
+                node_affinity: node_affinity_yaml,
             },
             labels: response.labels,
             created_at: response.created_at,

@@ -1,23 +1,28 @@
+use crate::api::authorizations::list_authorizations;
+use crate::api::resource_limits::list_resource_limits;
+use crate::api::secrets::list_secrets;
+use crate::api::templates::create_template;
+use crate::components::{ErrorMessage, FormField, NamespaceSelector};
+use crate::models::authorization::Authorization;
+use crate::models::resource_limit::ResourceLimit;
+use crate::models::secret::Secret;
+use crate::models::template::TemplateFormData;
+use crate::models::SessionState;
+use crate::routes::Route;
+use crate::utils::validation::{validate_docker_image, validate_name};
+use std::collections::HashMap;
 use yew::prelude::*;
 use yew_router::prelude::*;
 use yewdux::prelude::*;
-use std::collections::HashMap;
-use crate::api::templates::create_template;
-use crate::api::resource_limits::list_resource_limits;
-use crate::api::secrets::list_secrets;
-use crate::models::template::TemplateFormData;
-use crate::models::resource_limit::ResourceLimit;
-use crate::models::secret::Secret;
-use crate::models::SessionState;
-use crate::routes::Route;
-use crate::components::{FormField, ErrorMessage, NamespaceSelector};
-use crate::utils::validation::{validate_name, validate_docker_image};
 
 #[function_component(TemplateForm)]
 pub fn template_form() -> Html {
     let (session_state, _) = use_store::<SessionState>();
-    let namespace = session_state.selected_namespace.clone().unwrap_or_else(|| "default".to_string());
-    
+    let namespace = session_state
+        .selected_namespace
+        .clone()
+        .unwrap_or_else(|| "default".to_string());
+
     let form_data = use_state(|| TemplateFormData {
         namespace: namespace.clone(),
         ..Default::default()
@@ -26,13 +31,16 @@ pub fn template_form() -> Html {
     let is_submitting = use_state(|| false);
     let submit_error = use_state(|| Option::<String>::None);
     let navigator = use_navigator().unwrap();
-    
+
     let resource_limits = use_state(Vec::<ResourceLimit>::new);
     let is_loading_limits = use_state(|| true);
-    
+
     let secrets = use_state(Vec::<Secret>::new);
     let is_loading_secrets = use_state(|| true);
-    
+
+    let authorizations = use_state(Vec::<Authorization>::new);
+    let is_loading_authorizations = use_state(|| true);
+
     // Load resource limits
     {
         let resource_limits = resource_limits.clone();
@@ -44,7 +52,9 @@ pub fn template_form() -> Html {
                         resource_limits.set(limits);
                     }
                     Err(e) => {
-                        web_sys::console::error_1(&format!("Failed to load resource limits: {}", e).into());
+                        web_sys::console::error_1(
+                            &format!("Failed to load resource limits: {}", e).into(),
+                        );
                         resource_limits.set(vec![]);
                     }
                 }
@@ -53,7 +63,7 @@ pub fn template_form() -> Html {
             || ()
         });
     }
-    
+
     // Load secrets for the current namespace
     {
         let secrets = secrets.clone();
@@ -78,7 +88,34 @@ pub fn template_form() -> Html {
             || ()
         });
     }
-    
+
+    // Load authorizations for the current namespace
+    {
+        let authorizations = authorizations.clone();
+        let is_loading_authorizations = is_loading_authorizations.clone();
+        let namespace = namespace.clone();
+        use_effect_with(namespace.clone(), move |ns| {
+            let authorizations = authorizations.clone();
+            let is_loading_authorizations = is_loading_authorizations.clone();
+            let namespace = Some(ns.clone());
+            wasm_bindgen_futures::spawn_local(async move {
+                match list_authorizations(namespace, None).await {
+                    Ok(auth_list) => {
+                        authorizations.set(auth_list);
+                    }
+                    Err(e) => {
+                        web_sys::console::error_1(
+                            &format!("Failed to load authorizations: {}", e).into(),
+                        );
+                        authorizations.set(vec![]);
+                    }
+                }
+                is_loading_authorizations.set(false);
+            });
+            || ()
+        });
+    }
+
     // Update form namespace when session state changes
     {
         let form_data = form_data.clone();
@@ -91,8 +128,6 @@ pub fn template_form() -> Html {
         });
     }
 
-
-
     let on_name_change = {
         let form_data = form_data.clone();
         let errors = errors.clone();
@@ -102,7 +137,7 @@ pub fn template_form() -> Html {
             let mut data = (*form_data).clone();
             data.name = value.clone();
             form_data.set(data);
-            
+
             let mut new_errors = (*errors).clone();
             if let Some(error) = validate_name(&value) {
                 new_errors.insert("name".to_string(), error);
@@ -122,7 +157,7 @@ pub fn template_form() -> Html {
             let mut data = (*form_data).clone();
             data.image = value.clone();
             form_data.set(data);
-            
+
             let mut new_errors = (*errors).clone();
             if let Some(error) = validate_docker_image(&value) {
                 new_errors.insert("image".to_string(), error);
@@ -215,7 +250,8 @@ pub fn template_form() -> Html {
         let env_items = env_items.clone();
         use_effect_with(env_items.clone(), move |items| {
             let mut data = (*form_data).clone();
-            data.envs = items.iter()
+            data.envs = items
+                .iter()
                 .filter(|(_, k, v)| !k.is_empty() || !v.is_empty())
                 .map(|(_, k, v)| (k.clone(), v.clone()))
                 .collect();
@@ -266,16 +302,38 @@ pub fn template_form() -> Html {
             let select: web_sys::HtmlSelectElement = e.target_unchecked_into();
             let value = select.value();
             let mut data = (*form_data).clone();
-            data.resource_limit_name = if value.is_empty() { None } else { Some(value.clone()) };
+            data.resource_limit_name = if value.is_empty() {
+                None
+            } else {
+                Some(value.clone())
+            };
             form_data.set(data);
-            
+
             let mut new_errors = (*errors).clone();
             if value.is_empty() {
-                new_errors.insert("resource_limit_name".to_string(), "Resource limit is required".to_string());
+                new_errors.insert(
+                    "resource_limit_name".to_string(),
+                    "Resource limit is required".to_string(),
+                );
             } else {
                 new_errors.remove("resource_limit_name");
             }
             errors.set(new_errors);
+        })
+    };
+
+    let on_authorization_change = {
+        let form_data = form_data.clone();
+        Callback::from(move |e: Event| {
+            let select: web_sys::HtmlSelectElement = e.target_unchecked_into();
+            let value = select.value();
+            let mut data = (*form_data).clone();
+            data.authorization_name = if value.is_empty() {
+                None
+            } else {
+                Some(value)
+            };
+            form_data.set(data);
         })
     };
 
@@ -285,16 +343,16 @@ pub fn template_form() -> Html {
         let is_submitting = is_submitting.clone();
         let submit_error = submit_error.clone();
         let navigator = navigator.clone();
-        
+
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
-            
+
             if !errors.is_empty() {
                 return;
             }
-            
+
             let data = (*form_data).clone();
-            
+
             let mut validation_errors = HashMap::new();
             if let Some(error) = validate_name(&data.name) {
                 validation_errors.insert("name".to_string(), error);
@@ -303,20 +361,23 @@ pub fn template_form() -> Html {
                 validation_errors.insert("image".to_string(), error);
             }
             if data.resource_limit_name.is_none() {
-                validation_errors.insert("resource_limit_name".to_string(), "Resource limit is required".to_string());
+                validation_errors.insert(
+                    "resource_limit_name".to_string(),
+                    "Resource limit is required".to_string(),
+                );
             }
-            
+
             if !validation_errors.is_empty() {
                 errors.set(validation_errors);
                 return;
             }
-            
+
             is_submitting.set(true);
             let _errors = errors.clone();
             let is_submitting = is_submitting.clone();
             let submit_error = submit_error.clone();
             let navigator = navigator.clone();
-            
+
             wasm_bindgen_futures::spawn_local(async move {
                 let request = data.to_create_request();
                 match create_template(request).await {
@@ -338,7 +399,7 @@ pub fn template_form() -> Html {
     html! {
         <div class="container">
             <NamespaceSelector />
-            
+
             <div class="header">
                 <h1>{ "Create Template" }</h1>
                 <Link<Route> to={Route::TemplateList}>
@@ -356,11 +417,11 @@ pub fn template_form() -> Html {
                     <span class="namespace-badge">{ &form_data.namespace }</span>
                 </div>
 
-                <FormField 
+                <FormField
                     label="Template Name *"
                     error={errors.get("name").cloned()}
                 >
-                    <input 
+                    <input
                         type="text"
                         value={form_data.name.clone()}
                         onchange={on_name_change}
@@ -370,11 +431,11 @@ pub fn template_form() -> Html {
                     <small class="form-help">{ "Lowercase alphanumeric and hyphens only, max 63 characters" }</small>
                 </FormField>
 
-                <FormField 
+                <FormField
                     label="Docker Image *"
                     error={errors.get("image").cloned()}
                 >
-                    <input 
+                    <input
                         type="text"
                         value={form_data.image.clone()}
                         onchange={on_image_change}
@@ -384,11 +445,11 @@ pub fn template_form() -> Html {
                     <small class="form-help">{ "Full image name with tag (e.g., myregistry/myimage:v1.0)" }</small>
                 </FormField>
 
-                <FormField 
+                <FormField
                     label="Command"
                     error={Option::<String>::None}
                 >
-                    <input 
+                    <input
                         type="text"
                         value={form_data.command.join(" ")}
                         onchange={on_command_change}
@@ -397,11 +458,11 @@ pub fn template_form() -> Html {
                     <small class="form-help">{ "Optional command override (space-separated)" }</small>
                 </FormField>
 
-                <FormField 
+                <FormField
                     label="Arguments"
                     error={Option::<String>::None}
                 >
-                    <input 
+                    <input
                         type="text"
                         value={form_data.args.join(" ")}
                         onchange={on_args_change}
@@ -413,10 +474,10 @@ pub fn template_form() -> Html {
                 <div class="form-section">
                     <label class="section-label">{ "Environment Variables" }</label>
                     <small class="form-help">{ "Add key-value pairs for environment variables" }</small>
-                    
+
                     { for env_items.iter().map(|(id, key, value)| {
                         let item_id = *id;
-                        
+
                         let on_key_change = {
                             let on_env_key_change = on_env_key_change.clone();
                             Callback::from(move |e: Event| {
@@ -424,7 +485,7 @@ pub fn template_form() -> Html {
                                 on_env_key_change(item_id, input.value());
                             })
                         };
-                        
+
                         let on_value_change = {
                             let on_env_value_change = on_env_value_change.clone();
                             Callback::from(move |e: Event| {
@@ -432,15 +493,15 @@ pub fn template_form() -> Html {
                                 on_env_value_change(item_id, input.value());
                             })
                         };
-                        
+
                         let on_remove = {
                             let on_remove_env = on_remove_env.clone();
                             Callback::from(move |_| on_remove_env(item_id))
                         };
-                        
+
                         html! {
                             <div class="label-row" key={item_id}>
-                                <input 
+                                <input
                                     type="text"
                                     value={key.clone()}
                                     onchange={on_key_change}
@@ -448,14 +509,14 @@ pub fn template_form() -> Html {
                                     class="label-key"
                                 />
                                 <span>{ "=" }</span>
-                                <input 
+                                <input
                                     type="text"
                                     value={value.clone()}
                                     onchange={on_value_change}
                                     placeholder="value"
                                     class="label-value"
                                 />
-                                <button 
+                                <button
                                     type="button"
                                     onclick={on_remove}
                                     class="btn-danger-small"
@@ -465,8 +526,8 @@ pub fn template_form() -> Html {
                             </div>
                         }
                     })}
-                    
-                    <button 
+
+                    <button
                         type="button"
                         onclick={on_add_env}
                         class="btn-secondary-small"
@@ -478,7 +539,7 @@ pub fn template_form() -> Html {
                 <div class="form-section">
                     <label class="section-label">{ "Secret References" }</label>
                     <small class="form-help">{ "Reference secrets from the same namespace" }</small>
-                    
+
                     { if *is_loading_secrets {
                         html! { <p>{ "Loading secrets..." }</p> }
                     } else if secrets.is_empty() {
@@ -500,15 +561,15 @@ pub fn template_form() -> Html {
                                             on_secret_env_change(index, e);
                                         })
                                     };
-                                    
+
                                     let on_remove = {
                                         let on_remove_secret_env = on_remove_secret_env.clone();
                                         Callback::from(move |_| on_remove_secret_env(index))
                                     };
-                                    
+
                                     html! {
                                         <div class="label-row" key={index}>
-                                            <select 
+                                            <select
                                                 onchange={on_change}
                                                 style="flex: 1;"
                                             >
@@ -522,7 +583,7 @@ pub fn template_form() -> Html {
                                                     }
                                                 })}
                                             </select>
-                                            <button 
+                                            <button
                                                 type="button"
                                                 onclick={on_remove}
                                                 class="btn-danger-small"
@@ -532,8 +593,8 @@ pub fn template_form() -> Html {
                                         </div>
                                     }
                                 })}
-                                
-                                <button 
+
+                                <button
                                     type="button"
                                     onclick={on_add_secret_env}
                                     class="btn-secondary-small"
@@ -546,7 +607,7 @@ pub fn template_form() -> Html {
                     }}
                 </div>
 
-                <FormField 
+                <FormField
                     label="Resource Limit *"
                     error={errors.get("resource_limit_name").cloned()}
                 >
@@ -568,7 +629,7 @@ pub fn template_form() -> Html {
                         </>
                     } else {
                         <>
-                            <select 
+                            <select
                                 onchange={on_resource_limit_change}
                                 required={true}
                             >
@@ -577,9 +638,9 @@ pub fn template_form() -> Html {
                                     let is_selected = form_data.resource_limit_name.as_ref() == Some(&limit.name);
                                     html! {
                                         <option key={limit.name.clone()} value={limit.name.clone()} selected={is_selected}>
-                                            {format!("{} (CPU: {}, Memory: {})", 
-                                                limit.name, 
-                                                limit.limits.cpu, 
+                                            {format!("{} (CPU: {}, Memory: {})",
+                                                limit.name,
+                                                limit.limits.cpu,
                                                 limit.limits.memory
                                             )}
                                         </option>
@@ -591,8 +652,40 @@ pub fn template_form() -> Html {
                     }
                 </FormField>
 
+                <FormField
+                    label="Authorization"
+                    error={Option::<String>::None}
+                >
+                    if *is_loading_authorizations {
+                        <select disabled={true}>
+                            <option>{"Loading authorizations..."}</option>
+                        </select>
+                    } else {
+                        <>
+                            <select
+                                onchange={on_authorization_change}
+                            >
+                                <option value="" selected={form_data.authorization_name.is_none()}>{"-- Use default (anonymous) --"}</option>
+                                { for authorizations.iter().map(|auth| {
+                                    let is_selected = form_data.authorization_name.as_ref() == Some(&auth.name);
+                                    let type_name = match auth.auth_type {
+                                        1 => "Service Account",
+                                        _ => "Unknown",
+                                    };
+                                    html! {
+                                        <option key={auth.name.clone()} value={auth.name.clone()} selected={is_selected}>
+                                            {format!("{} ({})", auth.name, type_name)}
+                                        </option>
+                                    }
+                                })}
+                            </select>
+                            <small class="form-help">{ "Optional: Select an authorization for accessing this MCP server. If not selected, anonymous access is used." }</small>
+                        </>
+                    }
+                </FormField>
+
                 <div class="form-actions">
-                    <button 
+                    <button
                         type="submit"
                         class="btn-primary"
                         disabled={*is_submitting || !errors.is_empty()}

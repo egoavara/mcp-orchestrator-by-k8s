@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::vec;
 
 use super::label_query::LabelQuery;
@@ -12,7 +12,10 @@ use crate::storage::resource_type::{
 };
 use crate::storage::util_list::ListOption;
 use crate::storage::util_name::{decode_k8sname, encode_k8sname};
-use crate::storage::utils::{add_safe_finalizer, data_elem, del_safe_finalizer, parse_data_elem};
+use crate::storage::utils::{
+    add_safe_finalizer, data_elem, data_elem_jsonstr, data_elem_ojsonstr, del_safe_finalizer,
+    parse_data_elem,
+};
 use crate::{
     error::AppError,
     storage::{
@@ -22,14 +25,14 @@ use crate::{
     },
 };
 use chrono::{DateTime, Duration, Utc};
-use k8s_openapi::api::core::v1::{ConfigMap, ResourceRequirements};
+use k8s_openapi::api::core::v1::{Affinity, ConfigMap, ResourceRequirements};
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use kube::Resource;
 use kube::{
     Api, Client, ResourceExt,
     api::{DeleteParams, ListParams, ObjectMeta, PostParams},
 };
-use proto::mcp::orchestrator::v1;
+use proto::mcp::orchestrator::v1::{self, VolumeLimit};
 
 const FINALIZER_NAME: &str = "mcp-orchestrator.egoavara.net/resource-limit";
 const DATA_CPU: &str = "cpu";
@@ -38,27 +41,28 @@ const DATA_MEMORY: &str = "memory";
 const DATA_MEMORY_LIMIT: &str = "memory_limit";
 const DATA_EPHEMERAL_STORAGE: &str = "ephemeral_storage";
 const DATA_VOLUMES: &str = "volumes";
+const DATA_NODE_SELECTOR: &str = "node_selector";
+const DATA_NODE_AFFINITY: &str = "node_affinity";
 
 pub struct ResourceLimitData {
     pub raw: ConfigMap,
     pub name: String,
     pub description: String,
     pub labels: HashMap<String, String>,
-    pub limits: v1::ResourceLimit,
+    pub cpu: String,
+    pub memory: String,
+    pub cpu_limit: Option<String>,
+    pub memory_limit: Option<String>,
+    pub ephemeral_storage: Option<String>,
+    pub volumes: HashMap<String, VolumeLimit>,
+    pub node_selector: Option<BTreeMap<String, String>>,
+    pub node_affinity: Option<Affinity>,
     pub created_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
 impl ResourceLimitData {
     pub fn try_from_config_map(cm: ConfigMap) -> Result<Self, AppError> {
-        let spec = v1::ResourceLimit {
-            cpu: parse_data_elem(&cm.data, DATA_CPU)?,
-            cpu_limit: parse_data_elem(&cm.data, DATA_CPU_LIMIT)?,
-            memory: parse_data_elem(&cm.data, DATA_MEMORY)?,
-            memory_limit: parse_data_elem(&cm.data, DATA_MEMORY_LIMIT)?,
-            volumes: parse_data_elem(&cm.data, DATA_VOLUMES)?,
-            ephemeral_storage: parse_data_elem(&cm.data, DATA_EPHEMERAL_STORAGE)?,
-        };
         Ok(Self {
             name: decode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, &cm.name_any()).ok_or_else(
                 || {
@@ -79,7 +83,14 @@ impl ResourceLimitData {
                 .iter()
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect(),
-            limits: spec,
+            cpu: parse_data_elem(&cm.data, DATA_CPU)?,
+            cpu_limit: parse_data_elem(&cm.data, DATA_CPU_LIMIT)?,
+            memory: parse_data_elem(&cm.data, DATA_MEMORY)?,
+            memory_limit: parse_data_elem(&cm.data, DATA_MEMORY_LIMIT)?,
+            volumes: parse_data_elem(&cm.data, DATA_VOLUMES)?,
+            ephemeral_storage: parse_data_elem(&cm.data, DATA_EPHEMERAL_STORAGE)?,
+            node_selector: parse_data_elem(&cm.data, DATA_NODE_SELECTOR)?,
+            node_affinity: parse_data_elem(&cm.data, DATA_NODE_AFFINITY)?,
             created_at: cm
                 .creation_timestamp()
                 .map(|x| x.0)
@@ -93,10 +104,9 @@ impl ResourceLimitData {
         ResourceRequirements {
             requests: Some(
                 [
-                    Some(("cpu".to_string(), Quantity(self.limits.cpu.clone()))),
-                    Some(("memory".to_string(), Quantity(self.limits.memory.clone()))),
-                    self.limits
-                        .ephemeral_storage
+                    Some(("cpu".to_string(), Quantity(self.cpu.clone()))),
+                    Some(("memory".to_string(), Quantity(self.memory.clone()))),
+                    self.ephemeral_storage
                         .as_ref()
                         .map(|v| ("ephemeral-storage".to_string(), Quantity(v.to_string()))),
                 ]
@@ -108,22 +118,15 @@ impl ResourceLimitData {
                 [
                     Some((
                         "cpu".to_string(),
-                        Quantity(
-                            self.limits
-                                .cpu_limit
-                                .as_ref()
-                                .cloned()
-                                .unwrap_or(self.limits.cpu.clone()),
-                        ),
+                        Quantity(self.cpu_limit.as_ref().cloned().unwrap_or(self.cpu.clone())),
                     )),
                     Some((
                         "memory".to_string(),
                         Quantity(
-                            self.limits
-                                .memory_limit
+                            self.memory_limit
                                 .as_ref()
                                 .cloned()
-                                .unwrap_or(self.limits.memory.clone()),
+                                .unwrap_or(self.memory.clone()),
                         ),
                     )),
                 ]
@@ -158,6 +161,18 @@ impl ResourceLimitStore {
         data: &v1::ResourceLimit,
     ) -> Result<ResourceLimitData, AppError> {
         let name = encode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, name);
+
+        let mut data_vec = vec![
+            data_elem(DATA_CPU, &data.cpu)?,
+            data_elem(DATA_CPU_LIMIT, &data.cpu_limit)?,
+            data_elem(DATA_MEMORY, &data.memory)?,
+            data_elem(DATA_MEMORY_LIMIT, &data.memory_limit)?,
+            data_elem(DATA_VOLUMES, &data.volumes)?,
+            data_elem(DATA_EPHEMERAL_STORAGE, &data.ephemeral_storage)?,
+            data_elem(DATA_NODE_SELECTOR, &data.node_selector)?,
+            data_elem_ojsonstr(DATA_NODE_AFFINITY, data.node_affinity.as_deref())?,
+        ];
+
         let configmap = ConfigMap {
             metadata: ObjectMeta {
                 name: Some(name),
@@ -173,18 +188,7 @@ impl ResourceLimitStore {
                 ),
                 ..Default::default()
             },
-            data: Some(
-                vec![
-                    data_elem(DATA_CPU, &data.cpu)?,
-                    data_elem(DATA_CPU_LIMIT, &data.cpu_limit)?,
-                    data_elem(DATA_MEMORY, &data.memory)?,
-                    data_elem(DATA_MEMORY_LIMIT, &data.memory_limit)?,
-                    data_elem(DATA_VOLUMES, &data.volumes)?,
-                    data_elem(DATA_EPHEMERAL_STORAGE, &data.ephemeral_storage)?,
-                ]
-                .into_iter()
-                .collect(),
-            ),
+            data: Some(data_vec.into_iter().collect()),
             ..Default::default()
         };
 
