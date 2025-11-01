@@ -10,9 +10,7 @@ use http::{HeaderMap, HeaderValue};
 use jsonwebtoken::{DecodingKey, EncodingKey, Validation, jwk::JwkSet};
 use k8s_openapi::api::core::v1::Secret;
 use kube::{Api, api::ObjectMeta};
-use openidconnect::{
-    ClientId, ClientSecret, EndpointMaybeSet, EndpointNotSet, EndpointSet,
-};
+use openidconnect::{ClientId, ClientSecret, EndpointMaybeSet, EndpointNotSet, EndpointSet};
 use rand::{Rng, distributions::Alphanumeric};
 use tower::{Layer, Service};
 
@@ -117,11 +115,13 @@ impl AuthManager {
         let local_jwks = config.create_jwt_validation(&client).await?;
         let mut local_decoding_key = HashMap::new();
         let mut local_encoding_key = HashMap::new();
-        let mut rng = rand::thread_rng();
         for jwk in &local_jwks.keys {
+            let rng = rand::thread_rng();
             let kid = jwk.common.key_id.clone().unwrap_or_else(|| {
                 rng.sample_iter(&Alphanumeric)
-                    .take(10).collect::<String>()
+                    .take(10)
+                    .map(|x| x as char)
+                    .collect::<String>()
             });
             let deckey = jwk_to_decoding_key(jwk).map_err(AuthError::DiscoveryError)?;
             let enckey = jwk_to_encoding_key(jwk).map_err(AuthError::DiscoveryError)?;

@@ -38,7 +38,7 @@ p256 = "0.13"
 p384 = "0.13"
 pkcs8 = { version = "0.10", features = ["pem"] }
 sec1 = "0.7"
-rand = "0.6"
+rand = "0.8"
 rand_chacha = { version = "0.3" }
 
 pin-project-lite = "0.2"
@@ -110,3 +110,6 @@ clap = { version = "4.5", features = ["derive", "env"] }
 dotenvy = "0.15"
 
 thiserror = { version = "2" }
+
+# Transitive dependency 버전 강제 (직접 사용하지 않더라도 명시)
+# 이렇게 하면 Cargo resolver가 이 버전을 우선 선택함

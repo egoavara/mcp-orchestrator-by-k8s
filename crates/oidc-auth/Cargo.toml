@@ -25,7 +25,6 @@ kube = { workspace = true }
 k8s-openapi = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
-urlencoding = "2"
 rsa = { workspace = true }
 argon2 = { workspace = true }
 ed25519-dalek = { workspace = true }
@@ -34,4 +33,3 @@ rand_chacha = { workspace = true }
 p256 = { workspace = true }
 p384 = { workspace = true }
 pkcs8 = { workspace = true }
-sec1 = { workspace = true }

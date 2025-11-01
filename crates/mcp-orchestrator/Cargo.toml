@@ -3,6 +3,14 @@ name = "mcp-orchestrator"
 version.workspace = true
 edition.workspace = true
 
+[package.metadata.cargo-machete]
+ignored = [
+    # 정적 파일 빌드와 build.rs 에서 의존성 주입을 위해 사용
+    "mcp-orchestrator-front",
+    "humantime",
+    "humantime-serde",
+]
+
 [[bin]]
 name = "mcp-orchestrator"
 path = "src/main.rs"
@@ -27,20 +35,16 @@ mime_guess = { workspace = true }
 
 tonic = { workspace = true }
 tonic-web = { workspace = true }
-tonic-prost = { workspace = true }
 tonic-reflection = { workspace = true }
-prost = { workspace = true }
-prost-wkt = { workspace = true }
 prost-wkt-types = { workspace = true }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
 json-patch = { workspace = true }
-
-chrono = { workspace = true }
 humantime = { workspace = true }
 humantime-serde = { workspace = true }
 
+chrono = { workspace = true }
 regex = { workspace = true }
 lazy_static = { workspace = true }
 

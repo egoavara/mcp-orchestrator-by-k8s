@@ -34,6 +34,7 @@ pub async fn handler(
     auth: Option<TypedHeader<Authorization<Bearer>>>,
     request: Request<Body>,
 ) -> Result<BoxResponse, BoxResponse> {
+    tracing::debug!(auth=?auth, "POST /mcp/{}/{} request received", namespace, name);
     let req = PodMcpRequest {
         token: auth
             .as_ref()
