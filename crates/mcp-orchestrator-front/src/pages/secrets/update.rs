@@ -1,6 +1,8 @@
-use crate::api::secrets::{get_secret, update_secret};
+use crate::api::APICaller;
 use crate::components::{ErrorMessage, Loading};
-use crate::models::{secret::Secret, SessionState};
+use crate::models::secret::Secret;
+use crate::models::state::AuthState;
+use crate::models::SessionState;
 use crate::routes::Route;
 use proto_web::{SecretUpdateStrategy, UpdateSecretRequest};
 use std::collections::HashMap;
@@ -31,6 +33,7 @@ pub fn secret_update(props: &Props) -> Html {
     let load_error = use_state(|| Option::<String>::None);
     let navigator = use_navigator().unwrap();
     let (_session_state, _) = use_store::<SessionState>();
+    let (auth_state, _) = use_store::<AuthState>();
 
     {
         let namespace = props.namespace.clone();
@@ -38,10 +41,12 @@ pub fn secret_update(props: &Props) -> Html {
         let secret_data = secret_data.clone();
         let is_loading = is_loading.clone();
         let load_error = load_error.clone();
+        let auth_state = auth_state.clone();
 
         use_effect_with((namespace.clone(), name.clone()), move |_| {
             wasm_bindgen_futures::spawn_local(async move {
-                match get_secret(&namespace, &name).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.get_secret(&namespace, &name).await {
                     Ok(secret) => {
                         secret_data.set(Some(secret));
                         is_loading.set(false);
@@ -119,6 +124,7 @@ pub fn secret_update(props: &Props) -> Html {
         let navigator = navigator.clone();
         let namespace = props.namespace.clone();
         let name = props.name.clone();
+        let auth_state = auth_state.clone();
 
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
@@ -154,6 +160,7 @@ pub fn secret_update(props: &Props) -> Html {
             let navigator = navigator.clone();
             let namespace = namespace.clone();
             let name = name.clone();
+            let auth_state = auth_state.clone();
 
             wasm_bindgen_futures::spawn_local(async move {
                 let data_map: HashMap<String, String> = data
@@ -169,7 +176,8 @@ pub fn secret_update(props: &Props) -> Html {
                     strategy: data.strategy as i32,
                 };
 
-                match update_secret(request).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.update_secret(request).await {
                     Ok(secret) => {
                         navigator.push(&Route::SecretDetail {
                             namespace: secret.namespace,

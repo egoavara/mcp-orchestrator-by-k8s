@@ -1,9 +1,11 @@
-use crate::api::templates::{delete_template, get_template};
+use crate::api::APICaller;
 use crate::components::{ConfirmDialog, ErrorMessage, Loading};
+use crate::models::state::AuthState;
 use crate::models::template::Template;
 use crate::routes::Route;
 use yew::prelude::*;
 use yew_router::prelude::*;
+use yewdux::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct TemplateDetailProps {
@@ -23,15 +25,18 @@ pub fn template_detail(props: &TemplateDetailProps) -> Html {
     let load_state = use_state(|| LoadState::Loading);
     let show_delete_dialog = use_state(|| false);
     let navigator = use_navigator().unwrap();
+    let (auth_state, _) = use_store::<AuthState>();
 
     {
         let load_state = load_state.clone();
         let namespace = props.namespace.clone();
         let name = props.name.clone();
+        let auth_state = auth_state.clone();
 
         use_effect_with((namespace.clone(), name.clone()), move |_| {
             wasm_bindgen_futures::spawn_local(async move {
-                match get_template(&namespace, &name).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.get_template(&namespace, &name).await {
                     Ok(template) => load_state.set(LoadState::Loaded(template)),
                     Err(e) => load_state.set(LoadState::Error(e)),
                 }
@@ -51,12 +56,15 @@ pub fn template_detail(props: &TemplateDetailProps) -> Html {
         let namespace = props.namespace.clone();
         let name = props.name.clone();
         let navigator = navigator.clone();
+        let auth_state = auth_state.clone();
         Callback::from(move |_| {
             let namespace = namespace.clone();
             let name = name.clone();
             let navigator = navigator.clone();
+            let auth_state = auth_state.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                match delete_template(&namespace, &name).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.delete_template(&namespace, &name).await {
                     Ok(_) => {
                         navigator.push(&Route::TemplateList);
                     }

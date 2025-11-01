@@ -2,7 +2,7 @@ use prost_wkt_build::{FileDescriptorSet, Message};
 use std::{env, path::PathBuf};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("cargo:rerun-if-changed=../../spec");
+    println!("cargo:rerun-if-changed=../../protobuf");
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
     let descriptor_file = out.join("descriptors.bin");
 
@@ -14,15 +14,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     config.compile_protos(
         &[
-            "../../spec/common.proto",
-            "../../spec/namespace.proto",
-            "../../spec/mcp_template.proto",
-            "../../spec/mcp_server.proto",
-            "../../spec/secret.proto",
-            "../../spec/resource_limit.proto",
-            "../../spec/authorization.proto",
+            "../../protobuf/common.proto",
+            "../../protobuf/namespace.proto",
+            "../../protobuf/mcp_template.proto",
+            "../../protobuf/mcp_server.proto",
+            "../../protobuf/secret.proto",
+            "../../protobuf/resource_limit.proto",
+            "../../protobuf/authorization.proto",
         ],
-        &["../../spec"],
+        &["../../protobuf"],
     )?;
 
     let descriptor_bytes = std::fs::read(descriptor_file).unwrap();

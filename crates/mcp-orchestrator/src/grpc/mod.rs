@@ -1,4 +1,3 @@
-mod mcp;
 mod mcp_authorization;
 mod mcp_generate_token;
 mod mcp_server;

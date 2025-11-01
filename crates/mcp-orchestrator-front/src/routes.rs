@@ -47,6 +47,9 @@ pub enum Route {
     #[at("/authorizations/:namespace/:name")]
     AuthorizationDetail { namespace: String, name: String },
 
+    #[at("/callback")]
+    OAuthCallback,
+
     #[not_found]
     #[at("/404")]
     NotFound,

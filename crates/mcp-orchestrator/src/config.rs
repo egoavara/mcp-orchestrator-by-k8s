@@ -3,6 +3,7 @@ use figment::{
     Figment,
     providers::{Env, Format, Serialized, Yaml},
 };
+use oidc_auth::OpenIdConfig;
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, time::Duration};
 
@@ -19,12 +20,8 @@ pub struct Cli {
     )]
     pub config: PathBuf,
 
-    #[arg(
-        long,
-        env = "HOST",
-        help = "Server bind address [env: HOST or MCP_SERVER_HOST]"
-    )]
-    pub host: Option<String>,
+    #[arg(long, env = "URL", help = "Server bind URL")]
+    pub url: Option<String>,
 
     #[arg(
         long,
@@ -34,6 +31,7 @@ pub struct Cli {
     pub port: Option<u16>,
 
     #[arg(
+        short,
         long,
         env = "LOG_LEVEL",
         help = "Log level: trace, debug, info, warn, error [env: LOG_LEVEL or MCP_SERVER_LOG_LEVEL]"
@@ -41,6 +39,7 @@ pub struct Cli {
     pub log_level: Option<String>,
 
     #[arg(
+        short = 'n',
         long,
         env = "KUBE_NAMESPACE",
         help = "Default Kubernetes namespace for MCP servers [env: KUBE_NAMESPACE or MCP_KUBERNETES_NAMESPACE]"
@@ -48,6 +47,7 @@ pub struct Cli {
     pub kube_namespace: Option<String>,
 
     #[arg(
+        short,
         long,
         env = "KUBE_CONTEXT",
         help = "Kubernetes context to use [env: KUBE_CONTEXT or MCP_KUBERNETES_CONTEXT]"
@@ -60,6 +60,13 @@ pub struct Cli {
         help = "Name of the pod running this instance [env: POD_NAME or MCP_POD_NAME]"
     )]
     pub pod_name: Option<String>,
+
+    #[arg(
+        long,
+        env = "OIDC_DISCOVERY",
+        help = "OIDC Discovery URL [env: OIDC_DISCOVERY]"
+    )]
+    pub oidc_discovery: Option<String>,
 }
 
 fn remove_nulls(value: serde_json::Value) -> serde_json::Value {
@@ -96,15 +103,22 @@ impl Cli {
 
         let value = json!({
             "server": {
-                "host": self.host,
                 "port": self.port,
                 "log_level": self.log_level,
+                "url": self.url,
             },
             "kubernetes": {
                 "namespace": self.kube_namespace,
                 "context": self.kube_context,
                 "pod": {
                     "name": self.pod_name,
+                }
+            },
+            "auth": {
+                "openid": {
+                    "discovery": {
+                        "discovery_url": self.oidc_discovery,
+                    }
                 }
             }
         });
@@ -115,8 +129,11 @@ impl Cli {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
-    #[serde(default = "default_host")]
-    pub host: String,
+    #[serde(default = "default_url")]
+    pub url: String,
+
+    #[serde(default = "default_ip_addr")]
+    pub ip_addr: String,
 
     #[serde(default = "default_port")]
     pub port: u16,
@@ -155,6 +172,9 @@ pub struct AuthConfig {
 
     #[serde(default = "default_allow_expireless_token")]
     pub allow_expireless_token: bool,
+
+    #[serde(default)]
+    pub openid: Option<OpenIdConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -176,7 +196,11 @@ fn default_keep_alive() -> Option<Duration> {
     Some(std::time::Duration::from_secs(30))
 }
 
-fn default_host() -> String {
+fn default_url() -> String {
+    "http://localhost:3000".to_string()
+}
+
+fn default_ip_addr() -> String {
     "0.0.0.0".to_string()
 }
 
@@ -203,7 +227,8 @@ fn default_allow_expireless_token() -> bool {
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
-            host: default_host(),
+            url: default_url(),
+            ip_addr: default_ip_addr(),
             port: default_port(),
             log_level: default_log_level(),
         }
@@ -233,6 +258,7 @@ impl Default for AuthConfig {
         Self {
             audience: default_audience(),
             allow_expireless_token: default_allow_expireless_token(),
+            openid: None,
         }
     }
 }
@@ -246,7 +272,6 @@ impl AppConfig {
         let cli = Cli::parse();
 
         let mut figment = Figment::new().merge(Serialized::defaults(AppConfig::default()));
-
         if cli.config.exists() {
             figment = figment.merge(Yaml::file(&cli.config));
         }

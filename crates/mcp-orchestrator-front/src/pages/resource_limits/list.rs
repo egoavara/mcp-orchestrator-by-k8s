@@ -1,9 +1,11 @@
-use crate::api::resource_limits::list_resource_limits;
+use crate::api::APICaller;
 use crate::components::{ErrorMessage, Loading};
 use crate::models::resource_limit::ResourceLimit;
+use crate::models::state::AuthState;
 use crate::routes::Route;
 use yew::prelude::*;
 use yew_router::prelude::*;
+use yewdux::prelude::*;
 
 #[derive(Debug)]
 enum LoadState {
@@ -15,12 +17,14 @@ enum LoadState {
 #[function_component(ResourceLimitList)]
 pub fn resource_limit_list() -> Html {
     let load_state = use_state(|| LoadState::Loading);
+    let (auth_state, _) = use_store::<AuthState>();
 
     {
         let load_state = load_state.clone();
+        let api = APICaller::new(auth_state.access_token.clone());
         use_effect_with((), move |_| {
             wasm_bindgen_futures::spawn_local(async move {
-                match list_resource_limits().await {
+                match api.list_resource_limits().await {
                     Ok(limits) => load_state.set(LoadState::Loaded(limits)),
                     Err(e) => load_state.set(LoadState::Error(e)),
                 }

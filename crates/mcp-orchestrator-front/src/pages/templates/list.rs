@@ -1,5 +1,6 @@
-use crate::api::templates::list_templates;
+use crate::api::APICaller;
 use crate::components::{ErrorMessage, Loading, NamespaceSelector};
+use crate::models::state::AuthState;
 use crate::models::template::Template;
 use crate::models::SessionState;
 use crate::routes::Route;
@@ -18,6 +19,7 @@ enum LoadState {
 pub fn template_list() -> Html {
     let load_state = use_state(|| LoadState::Loading);
     let (session_state, _) = use_store::<SessionState>();
+    let (auth_state, _) = use_store::<AuthState>();
     let namespace = session_state
         .selected_namespace
         .clone()
@@ -26,9 +28,10 @@ pub fn template_list() -> Html {
     {
         let load_state = load_state.clone();
         let namespace = namespace.clone();
+        let api = APICaller::new(auth_state.access_token.clone());
         use_effect_with(namespace.clone(), move |_| {
             wasm_bindgen_futures::spawn_local(async move {
-                match list_templates(&namespace).await {
+                match api.list_templates(&namespace).await {
                     Ok(templates) => load_state.set(LoadState::Loaded(templates)),
                     Err(e) => load_state.set(LoadState::Error(e)),
                 }

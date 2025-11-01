@@ -7,6 +7,8 @@ pub mod namespace_selector;
 pub mod navbar;
 pub mod resource_card;
 pub mod resource_list;
+pub mod sidebar;
+pub mod user_menu;
 
 pub use confirm_dialog::*;
 pub use error_message::*;
@@ -15,3 +17,5 @@ pub use layout::*;
 pub use loading::*;
 pub use namespace_selector::*;
 pub use navbar::*;
+pub use sidebar::*;
+pub use user_menu::*;

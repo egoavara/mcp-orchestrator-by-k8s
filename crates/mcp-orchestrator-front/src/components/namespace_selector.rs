@@ -1,4 +1,5 @@
-use crate::api::namespaces::list_namespaces;
+use crate::api::APICaller;
+use crate::models::state::AuthState;
 use crate::models::{Namespace, SessionState};
 use yew::prelude::*;
 use yewdux::prelude::*;
@@ -6,6 +7,7 @@ use yewdux::prelude::*;
 #[function_component(NamespaceSelector)]
 pub fn namespace_selector() -> Html {
     let (state, dispatch) = use_store::<SessionState>();
+    let (auth_state, _) = use_store::<AuthState>();
     let namespaces = use_state(Vec::<Namespace>::new);
     let is_loading = use_state(|| true);
 
@@ -14,10 +16,12 @@ pub fn namespace_selector() -> Html {
         let is_loading = is_loading.clone();
         let dispatch = dispatch.clone();
         let has_selected = state.selected_namespace.is_some();
+        let auth_state = auth_state.clone();
 
         use_effect_with((), move |_| {
             wasm_bindgen_futures::spawn_local(async move {
-                match list_namespaces().await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.list_namespaces().await {
                     Ok(ns_list) => {
                         if !ns_list.is_empty() && !has_selected {
                             let first_ns = ns_list[0].name.clone();

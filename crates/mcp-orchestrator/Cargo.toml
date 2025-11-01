@@ -62,7 +62,9 @@ uuid = { workspace = true }
 rmcp = { workspace = true }
 include_dir = { workspace = true }
 
+axum-qs = { path = "../axum-qs" }
 proto = { path = "../proto" }
+oidc-auth = { path = "../oidc-auth" }
 mcp-orchestrator-front = { path = "../mcp-orchestrator-front" }
 
 [dev-dependencies]

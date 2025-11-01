@@ -1,11 +1,9 @@
-use crate::api::authorizations::list_authorizations;
-use crate::api::resource_limits::list_resource_limits;
-use crate::api::secrets::list_secrets;
-use crate::api::templates::create_template;
+use crate::api::APICaller;
 use crate::components::{ErrorMessage, FormField, NamespaceSelector};
 use crate::models::authorization::Authorization;
 use crate::models::resource_limit::ResourceLimit;
 use crate::models::secret::Secret;
+use crate::models::state::AuthState;
 use crate::models::template::TemplateFormData;
 use crate::models::SessionState;
 use crate::routes::Route;
@@ -18,6 +16,7 @@ use yewdux::prelude::*;
 #[function_component(TemplateForm)]
 pub fn template_form() -> Html {
     let (session_state, _) = use_store::<SessionState>();
+    let (auth_state, _) = use_store::<AuthState>();
     let namespace = session_state
         .selected_namespace
         .clone()
@@ -45,9 +44,11 @@ pub fn template_form() -> Html {
     {
         let resource_limits = resource_limits.clone();
         let is_loading_limits = is_loading_limits.clone();
+        let auth_state = auth_state.clone();
         use_effect_with((), move |_| {
             wasm_bindgen_futures::spawn_local(async move {
-                match list_resource_limits().await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.list_resource_limits().await {
                     Ok(limits) => {
                         resource_limits.set(limits);
                     }
@@ -69,12 +70,15 @@ pub fn template_form() -> Html {
         let secrets = secrets.clone();
         let is_loading_secrets = is_loading_secrets.clone();
         let namespace = namespace.clone();
+        let auth_state = auth_state.clone();
         use_effect_with(namespace.clone(), move |ns| {
             let secrets = secrets.clone();
             let is_loading_secrets = is_loading_secrets.clone();
             let namespace = ns.clone();
+            let auth_state = auth_state.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                match list_secrets(&namespace).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.list_secrets(&namespace).await {
                     Ok(secret_list) => {
                         secrets.set(secret_list);
                     }
@@ -94,12 +98,15 @@ pub fn template_form() -> Html {
         let authorizations = authorizations.clone();
         let is_loading_authorizations = is_loading_authorizations.clone();
         let namespace = namespace.clone();
+        let auth_state = auth_state.clone();
         use_effect_with(namespace.clone(), move |ns| {
             let authorizations = authorizations.clone();
             let is_loading_authorizations = is_loading_authorizations.clone();
             let namespace = Some(ns.clone());
+            let auth_state = auth_state.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                match list_authorizations(namespace, None).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.list_authorizations(namespace, None).await {
                     Ok(auth_list) => {
                         authorizations.set(auth_list);
                     }
@@ -343,6 +350,7 @@ pub fn template_form() -> Html {
         let is_submitting = is_submitting.clone();
         let submit_error = submit_error.clone();
         let navigator = navigator.clone();
+        let auth_state = auth_state.clone();
 
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
@@ -377,10 +385,12 @@ pub fn template_form() -> Html {
             let is_submitting = is_submitting.clone();
             let submit_error = submit_error.clone();
             let navigator = navigator.clone();
+            let auth_state = auth_state.clone();
 
             wasm_bindgen_futures::spawn_local(async move {
                 let request = data.to_create_request();
-                match create_template(request).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.create_template(request).await {
                     Ok(template) => {
                         navigator.push(&Route::TemplateDetail {
                             namespace: template.namespace,
