@@ -1,5 +1,6 @@
-use crate::api::secrets::create_secret;
+use crate::api::APICaller;
 use crate::components::{ErrorMessage, FormField, NamespaceSelector};
+use crate::models::state::AuthState;
 use crate::models::SessionState;
 use crate::routes::Route;
 use crate::utils::validation::validate_name;
@@ -24,6 +25,7 @@ pub fn secret_create() -> Html {
     let submit_error = use_state(|| Option::<String>::None);
     let navigator = use_navigator().unwrap();
     let (session_state, _) = use_store::<SessionState>();
+    let (auth_state, _) = use_store::<AuthState>();
     let namespace = session_state.selected_namespace.clone();
 
     let namespace_value = namespace.clone().unwrap_or_else(|| "default".to_string());
@@ -95,6 +97,7 @@ pub fn secret_create() -> Html {
         let submit_error = submit_error.clone();
         let navigator = navigator.clone();
         let namespace_value = namespace_value.clone();
+        let auth_state = auth_state.clone();
 
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
@@ -126,6 +129,7 @@ pub fn secret_create() -> Html {
             let submit_error = submit_error.clone();
             let navigator = navigator.clone();
             let namespace_value = namespace_value.clone();
+            let auth_state = auth_state.clone();
 
             wasm_bindgen_futures::spawn_local(async move {
                 let data_map: HashMap<String, String> = data
@@ -147,7 +151,8 @@ pub fn secret_create() -> Html {
                     data: data_map,
                 };
 
-                match create_secret(request).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.create_secret(request).await {
                     Ok(secret) => {
                         navigator.push(&Route::SecretDetail {
                             namespace: secret.namespace,

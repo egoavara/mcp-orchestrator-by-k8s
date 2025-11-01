@@ -1,6 +1,7 @@
-use crate::api::authorizations::create_authorization;
+use crate::api::APICaller;
 use crate::components::{ErrorMessage, FormField, NamespaceSelector};
 use crate::models::authorization::AuthorizationFormData;
+use crate::models::state::AuthState;
 use crate::models::SessionState;
 use crate::routes::Route;
 use crate::utils::validation::validate_name;
@@ -17,6 +18,7 @@ pub fn authorization_create() -> Html {
     let submit_error = use_state(|| Option::<String>::None);
     let navigator = use_navigator().unwrap();
     let (session_state, _) = use_store::<SessionState>();
+    let (auth_state, _) = use_store::<AuthState>();
     let namespace = session_state.selected_namespace.clone();
 
     let namespace_value = namespace.clone().unwrap_or_else(|| "default".to_string());
@@ -99,9 +101,10 @@ pub fn authorization_create() -> Html {
             let is_submitting = is_submitting.clone();
             let submit_error = submit_error.clone();
             let navigator = navigator.clone();
+            let api = APICaller::new(auth_state.access_token.clone());
 
             wasm_bindgen_futures::spawn_local(async move {
-                match create_authorization(data).await {
+                match api.create_authorization(data).await {
                     Ok(authorization) => {
                         navigator.push(&Route::AuthorizationDetail {
                             namespace: authorization.namespace,

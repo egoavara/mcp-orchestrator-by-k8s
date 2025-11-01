@@ -5,29 +5,37 @@ pub fn get_base_url() -> String {
     web_sys::window().unwrap().location().origin().unwrap()
 }
 
-pub async fn grpc_web_call<Req, Res>(service_method: &str, request: Req) -> Result<Res, String>
+pub async fn grpc_web_call<Req, Res>(
+    service_method: &str,
+    request: Req,
+    access_token: Option<&str>,
+) -> Result<Res, String>
 where
     Req: Message,
     Res: Message + Default,
 {
-    // Encode the protobuf message
     let mut message_buf = Vec::new();
     request
         .encode(&mut message_buf)
         .map_err(|e| format!("Encode error: {}", e))?;
 
-    // gRPC-Web frame format: 1 byte (compression flag) + 4 bytes (message length) + message
     let message_len = message_buf.len() as u32;
     let mut frame = Vec::with_capacity(5 + message_buf.len());
-    frame.push(0); // No compression
+    frame.push(0);
     frame.extend_from_slice(&message_len.to_be_bytes());
     frame.extend_from_slice(&message_buf);
 
     let url = format!("{}{}", get_base_url(), service_method);
 
-    let response: Response = Request::post(&url)
+    let mut req = Request::post(&url)
         .header("Content-Type", "application/grpc-web+proto")
-        .header("X-Grpc-Web", "1")
+        .header("X-Grpc-Web", "1");
+
+    if let Some(token) = access_token {
+        req = req.header("Authorization", &format!("Bearer {}", token));
+    }
+
+    let response: Response = req
         .body(frame)
         .map_err(|e| format!("Body error: {}", e))?
         .send()

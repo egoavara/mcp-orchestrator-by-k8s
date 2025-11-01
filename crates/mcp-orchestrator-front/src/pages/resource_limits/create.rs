@@ -1,11 +1,13 @@
-use crate::api::resource_limits::create_resource_limit;
+use crate::api::APICaller;
 use crate::components::{ErrorMessage, FormField};
+use crate::models::state::AuthState;
 use crate::routes::Route;
 use crate::utils::validation::{validate_cpu, validate_memory, validate_name};
 use proto_web::{CreateResourceLimitRequest, ResourceLimit as ProtoResourceLimit};
 use std::collections::HashMap;
 use yew::prelude::*;
 use yew_router::prelude::*;
+use yewdux::prelude::*;
 
 #[derive(Default, Clone, PartialEq)]
 struct ResourceLimitFormData {
@@ -26,6 +28,7 @@ pub fn resource_limit_create() -> Html {
     let is_submitting = use_state(|| false);
     let submit_error = use_state(|| Option::<String>::None);
     let navigator = use_navigator().unwrap();
+    let (auth_state, _) = use_store::<AuthState>();
 
     let on_name_change = {
         let form_data = form_data.clone();
@@ -219,6 +222,7 @@ pub fn resource_limit_create() -> Html {
         let is_submitting = is_submitting.clone();
         let submit_error = submit_error.clone();
         let navigator = navigator.clone();
+        let auth_state = auth_state.clone();
 
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
@@ -249,6 +253,7 @@ pub fn resource_limit_create() -> Html {
             let is_submitting = is_submitting.clone();
             let submit_error = submit_error.clone();
             let navigator = navigator.clone();
+            let auth_state = auth_state.clone();
 
             wasm_bindgen_futures::spawn_local(async move {
                 let node_selector = if !data.node_selector_yaml.trim().is_empty() {
@@ -310,7 +315,8 @@ pub fn resource_limit_create() -> Html {
                     labels: HashMap::new(),
                 };
 
-                match create_resource_limit(request).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.create_resource_limit(request).await {
                     Ok(limit) => {
                         navigator.push(&Route::ResourceLimitDetail { name: limit.name });
                     }

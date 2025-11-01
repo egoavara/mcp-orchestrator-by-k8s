@@ -1,6 +1,7 @@
-use crate::api::authorizations::list_authorizations;
+use crate::api::APICaller;
 use crate::components::{ErrorMessage, Loading, NamespaceSelector};
 use crate::models::authorization::Authorization;
+use crate::models::state::AuthState;
 use crate::models::SessionState;
 use crate::routes::Route;
 use yew::prelude::*;
@@ -18,16 +19,18 @@ enum LoadState {
 pub fn authorization_list() -> Html {
     let load_state = use_state(|| LoadState::Loading);
     let (session_state, _) = use_store::<SessionState>();
+    let (auth_state, _) = use_store::<AuthState>();
     let namespace = session_state.selected_namespace.clone();
 
     {
         let load_state = load_state.clone();
         let namespace = namespace.clone();
+        let api = APICaller::new(auth_state.access_token.clone());
         use_effect_with(namespace.clone(), move |ns| {
             let load_state = load_state.clone();
             let namespace = ns.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                match list_authorizations(namespace, None).await {
+                match api.list_authorizations(namespace, None).await {
                     Ok(authorizations) => load_state.set(LoadState::Loaded(authorizations)),
                     Err(e) => load_state.set(LoadState::Error(e)),
                 }

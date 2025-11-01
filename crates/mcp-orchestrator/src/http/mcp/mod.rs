@@ -7,7 +7,7 @@ pub(crate) mod utils;
 
 use crate::state::AppState;
 
-pub fn router() -> Router<AppState> {
+pub fn router(_: &AppState) -> Router<AppState> {
     Router::new().route(
         "/{namespace}/{name}",
         get(get_namespace_name::handler)

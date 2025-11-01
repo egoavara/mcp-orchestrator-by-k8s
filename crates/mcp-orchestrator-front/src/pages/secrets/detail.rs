@@ -1,9 +1,11 @@
-use crate::api::secrets::{delete_secret, get_secret};
+use crate::api::APICaller;
 use crate::components::{ConfirmDialog, ErrorMessage, Loading};
 use crate::models::secret::Secret;
+use crate::models::state::AuthState;
 use crate::routes::Route;
 use yew::prelude::*;
 use yew_router::prelude::*;
+use yewdux::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
@@ -25,6 +27,7 @@ pub fn secret_detail(props: &Props) -> Html {
     let is_deleting = use_state(|| false);
     let delete_error = use_state(|| Option::<String>::None);
     let navigator = use_navigator().unwrap();
+    let (auth_state, _) = use_store::<AuthState>();
 
     let namespace = props.namespace.clone();
     let name = props.name.clone();
@@ -33,9 +36,11 @@ pub fn secret_detail(props: &Props) -> Html {
         let load_state = load_state.clone();
         let namespace = namespace.clone();
         let name = name.clone();
+        let auth_state = auth_state.clone();
         use_effect_with((namespace.clone(), name.clone()), move |_| {
             wasm_bindgen_futures::spawn_local(async move {
-                match get_secret(&namespace, &name).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.get_secret(&namespace, &name).await {
                     Ok(secret) => load_state.set(LoadState::Loaded(secret)),
                     Err(e) => load_state.set(LoadState::Error(e)),
                 }
@@ -58,6 +63,7 @@ pub fn secret_detail(props: &Props) -> Html {
         let navigator = navigator.clone();
         let namespace = namespace.clone();
         let name = name.clone();
+        let auth_state = auth_state.clone();
 
         Callback::from(move |_| {
             is_deleting.set(true);
@@ -67,9 +73,11 @@ pub fn secret_detail(props: &Props) -> Html {
             let navigator = navigator.clone();
             let namespace = namespace.clone();
             let name = name.clone();
+            let auth_state = auth_state.clone();
 
             wasm_bindgen_futures::spawn_local(async move {
-                match delete_secret(&namespace, &name).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.delete_secret(&namespace, &name).await {
                     Ok(_) => {
                         navigator.push(&Route::SecretList);
                     }

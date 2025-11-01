@@ -3,7 +3,7 @@ use std::{env, path::PathBuf};
 use prost_wkt_build::{FileDescriptorSet, Message};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("cargo:rerun-if-changed=../../spec");
+    println!("cargo:rerun-if-changed=../../protobuf");
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
     let descriptor_file = out.join("descriptors.bin");
 
@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .extern_path(".google.protobuf", "::prost_wkt_types")
         .file_descriptor_set_path(&descriptor_file)
         .type_attribute(".", "#[derive(serde::Serialize, serde::Deserialize)]")
-        .compile_protos(&["../../spec/service.proto"], &["../../spec"])?;
+        .compile_protos(&["../../protobuf/service.proto"], &["../../protobuf"])?;
 
     let descriptor_bytes = std::fs::read(descriptor_file).unwrap();
 
