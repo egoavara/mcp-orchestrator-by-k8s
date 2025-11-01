@@ -7,6 +7,7 @@
 - trunk serve는 사용자만 수행한다
 - crate 버전은 각 crate 보다는 workspace 레벨에 정의하고 subcrate 에서는 `{workspace=true}` 로 사용한다
 - 유사한 역활의 라이브러리를 사용하지 않는다, `ex. time + chrono 중 먼저 사용중인 라이브러리로 최대한 활용`
+- MUST 한국어를 사용한다
 
 ## 주요 기능
 - stdio 기반 MCP 서버를 HTTP-SSE 스트림으로 변환
