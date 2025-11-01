@@ -130,8 +130,8 @@ pub fn validate_node_selector_term(term: &NodeSelectorTerm) -> Result<(), AppErr
     let has_expressions = term
         .match_expressions
         .as_ref()
-        .map_or(false, |e| !e.is_empty());
-    let has_fields = term.match_fields.as_ref().map_or(false, |f| !f.is_empty());
+        .is_some_and(|e| !e.is_empty());
+    let has_fields = term.match_fields.as_ref().is_some_and(|f| !f.is_empty());
 
     if !has_expressions && !has_fields {
         return Err(AppError::InvalidInput(
@@ -167,7 +167,7 @@ pub fn validate_node_selector_requirement(req: &NodeSelectorRequirement) -> Resu
 
     match req.operator.as_str() {
         "In" | "NotIn" | "Gt" | "Lt" => {
-            if req.values.as_ref().map_or(true, |v| v.is_empty()) {
+            if req.values.as_ref().is_none_or(|v| v.is_empty()) {
                 return Err(AppError::InvalidInput(format!(
                     "Operator '{}' requires at least one value",
                     req.operator
@@ -180,7 +180,7 @@ pub fn validate_node_selector_requirement(req: &NodeSelectorRequirement) -> Resu
             }
         }
         "Exists" | "DoesNotExist" => {
-            if req.values.as_ref().map_or(false, |v| !v.is_empty()) {
+            if req.values.as_ref().is_some_and(|v| !v.is_empty()) {
                 return Err(AppError::InvalidInput(format!(
                     "Operator '{}' must not have values",
                     req.operator

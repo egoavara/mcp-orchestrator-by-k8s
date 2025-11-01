@@ -5,10 +5,9 @@ use kube::runtime::events::{Recorder, Reporter};
 use oidc_auth::{AuthManager, RequiredAuthLayer};
 use proto::mcp::orchestrator::v1::mcp_orchestrator_service_server::McpOrchestratorServiceServer;
 use tokio_util::sync::CancellationToken;
-use tonic::service::LayerExt;
 use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
-use tracing::{info, instrument::WithSubscriber};
+use tracing::info;
 
 mod assets;
 mod config;

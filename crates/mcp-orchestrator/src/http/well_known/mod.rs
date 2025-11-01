@@ -4,7 +4,7 @@ use crate::state::AppState;
 
 pub fn router(state: &AppState) -> Router<AppState> {
     let mut router = Router::new();
-    if let Some(oidc_manager) = &state.oidc_manager {
+    if let Some(_oidc_manager) = &state.oidc_manager {
         router = router
             .route("/oauth-protected-resource", get(protected_resource_handler))
             .route(

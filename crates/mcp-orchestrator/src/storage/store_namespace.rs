@@ -1,10 +1,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Duration, Utc};
-use k8s_openapi::{
-    List,
-    api::core::v1::{Namespace, Pod, Secret, ServiceAccount},
-};
+use k8s_openapi::api::core::v1::{Namespace, Pod, Secret};
 use kube::{
     Api, Client, Resource, ResourceExt,
     api::{DeleteParams, ListParams, ObjectMeta, PostParams},

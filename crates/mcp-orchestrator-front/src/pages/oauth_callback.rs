@@ -9,8 +9,11 @@ use yewdux::prelude::*;
 #[derive(Deserialize)]
 struct CallbackResponse {
     access_token: String,
+    #[allow(dead_code)]
     id_token: Option<String>,
+    #[allow(dead_code)]
     refresh_token: Option<String>,
+    #[allow(dead_code)]
     expires_in: Option<u64>,
 }
 

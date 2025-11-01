@@ -1,15 +1,11 @@
-use std::collections::{BTreeMap, HashMap};
-use std::f32::consts::E;
+use std::collections::HashMap;
 use std::vec;
 
 use super::label_query::LabelQuery;
 use super::labels::setup_labels;
-use crate::storage::SecretData;
-use crate::storage::annotations::{ANNOTATION_DESCRIPTION, annotation_description};
 use crate::storage::label_query::build_label_query;
 use crate::storage::labels::{
-    LABEL_AUTH_TYPE_OF, decode_label, decode_label_map, decode_label_optmap, label_auth_type_of,
-    label_dependency, label_dependency_query, label_dependency_tuple,
+    LABEL_AUTH_TYPE_OF, decode_label_optmap, label_auth_type_of, label_dependency_tuple,
 };
 use crate::storage::resource_type::{
     RESOURCE_TYPE_AUTHORIZATION, RESOURCE_TYPE_NAMESPACE, RESOURCE_TYPE_PREFIX_AUTHORIZATION,
@@ -18,8 +14,7 @@ use crate::storage::resource_type::{
 use crate::storage::util_list::ListOption;
 use crate::storage::util_name::{decode_k8sname, encode_k8sname};
 use crate::storage::utils::{
-    add_safe_finalizer, data_elem, data_elem_jsonstr, data_elem_ojsonstr, data_secret,
-    del_safe_finalizer, parse_data_elem, parse_secret_elem, pick_created_at, pick_deleted_at,
+    data_secret, parse_secret_elem, pick_created_at, pick_deleted_at,
 };
 use crate::{
     error::AppError,
@@ -32,22 +27,21 @@ use crate::{
 use chrono::{DateTime, Duration, Utc};
 use k8s_openapi::api::authentication::v1::{TokenRequest, TokenRequestSpec};
 use k8s_openapi::api::core::v1::{
-    Affinity, ConfigMap, ResourceRequirements, Secret, ServiceAccount,
+    Secret, ServiceAccount,
 };
-use k8s_openapi::api::flowcontrol::v1::ServiceAccountSubject;
-use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference;
 use kube::Resource;
 use kube::{
     Api, Client, ResourceExt,
-    api::{DeleteParams, ListParams, ObjectMeta, PostParams},
+    api::{DeleteParams, ObjectMeta, PostParams},
 };
-use proto::mcp::orchestrator::v1::{self, AuthorizationType, VolumeLimit};
+use proto::mcp::orchestrator::v1::AuthorizationType;
 
 const DATA_DATA: &str = "data";
 const DATA_SA_NAME: &str = "service_account_name";
 
 pub struct AuthorizationData {
+    #[allow(dead_code)]
     pub raw: Secret,
     pub namespace: String,
     pub labels: HashMap<String, String>,
@@ -194,7 +188,7 @@ impl AuthorizationStore {
         option: ListOption,
     ) -> Result<(Vec<AuthorizationData>, Option<String>, bool), AppError> {
         let mut queries = queries.to_vec();
-        if let Some(subtype) = subtype {
+        if let Some(_subtype) = subtype {
             queries.push(LabelQuery::equal(
                 LABEL_AUTH_TYPE_OF,
                 AuthorizationType::Anonymous.as_str_name(),
@@ -275,7 +269,7 @@ impl AuthorizationStore {
                 &TokenRequest {
                     spec: TokenRequestSpec {
                         audiences: vec![audience],
-                        expiration_seconds: duration.map(|d| d.num_seconds() as i64),
+                        expiration_seconds: duration.map(|d| d.num_seconds()),
                         bound_object_ref: None,
                     },
                     ..Default::default()
@@ -288,6 +282,6 @@ impl AuthorizationStore {
                 "TokenRequest status is missing".to_string(),
             ));
         };
-        Ok((status.token.clone(), status.expiration_timestamp.0.clone()))
+        Ok((status.token.clone(), status.expiration_timestamp.0))
     }
 }

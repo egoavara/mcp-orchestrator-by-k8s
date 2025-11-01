@@ -24,7 +24,7 @@ use crate::{
             RESOURCE_TYPE_PREFIX_MCP_TEMPLATE, RESOURCE_TYPE_RESOURCE_LIMIT, RESOURCE_TYPE_SECRET,
         },
         store::KubeStore,
-        store_authorization::{self, AuthorizationData, AuthorizationStore},
+        store_authorization::{AuthorizationData, AuthorizationStore},
         util_delete::{DeleteOption, DeleteResult},
         util_list::ListOption,
         util_name::{decode_k8sname, encode_k8sname},
@@ -184,7 +184,7 @@ impl McpTemplateData {
         client: &KubeStore,
     ) -> Result<(Pod, AuthorizationData), AppError> {
         let resource_limit_store = client.resource_limits();
-        let store_auth = client.authorization(Some(self.namespace.clone()));
+        let _store_auth = client.authorization(Some(self.namespace.clone()));
 
         let Some(resource_limit) = resource_limit_store.get(&self.resource_limit_name).await?
         else {
@@ -249,7 +249,7 @@ impl McpTemplateData {
             requirement
         );
 
-        let mut pod_spec = PodSpec {
+        let pod_spec = PodSpec {
             containers: vec![Container {
                 name: "main".to_string(),
                 image: Some(self.image.clone()),
@@ -333,8 +333,6 @@ impl McpTemplateStore {
         let api = self.api();
         let resource_limit_store =
             ResourceLimitStore::new(self.client.clone(), self.default_namespace.clone());
-        let store_authorization =
-            AuthorizationStore::new(self.client.clone(), self.target_namespace.clone());
 
         let resource_limit = resource_limit_store
             .get(&data.resource_limit_name)
@@ -352,7 +350,7 @@ impl McpTemplateStore {
         )
         .await?;
         let store_authorization = AuthorizationStore::new(self.client.clone(), self.target_namespace.clone());
-        let authorization = store_authorization
+        let _authorization = store_authorization
             .get(&data.authorization_name)
             .await?
             .ok_or_else(|| {

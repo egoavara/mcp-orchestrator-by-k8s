@@ -388,7 +388,7 @@ pub fn template_form() -> Html {
             let auth_state = auth_state.clone();
 
             wasm_bindgen_futures::spawn_local(async move {
-                let request = data.to_create_request();
+                let request = data.into_create_request();
                 let api = APICaller::new(auth_state.access_token.clone());
                 match api.create_template(request).await {
                     Ok(template) => {

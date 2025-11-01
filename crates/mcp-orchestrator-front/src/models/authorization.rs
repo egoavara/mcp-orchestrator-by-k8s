@@ -36,6 +36,7 @@ impl Default for AuthorizationFormData {
 }
 
 impl AuthorizationFormData {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self::default()
     }

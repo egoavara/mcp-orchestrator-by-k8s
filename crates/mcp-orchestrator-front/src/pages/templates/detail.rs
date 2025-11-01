@@ -16,7 +16,7 @@ pub struct TemplateDetailProps {
 #[derive(Debug)]
 enum LoadState {
     Loading,
-    Loaded(Template),
+    Loaded(Box<Template>),
     Error(String),
 }
 
@@ -37,7 +37,7 @@ pub fn template_detail(props: &TemplateDetailProps) -> Html {
             wasm_bindgen_futures::spawn_local(async move {
                 let api = APICaller::new(auth_state.access_token.clone());
                 match api.get_template(&namespace, &name).await {
-                    Ok(template) => load_state.set(LoadState::Loaded(template)),
+                    Ok(template) => load_state.set(LoadState::Loaded(Box::new(template))),
                     Err(e) => load_state.set(LoadState::Error(e)),
                 }
             });

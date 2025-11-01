@@ -1,7 +1,4 @@
 use crate::middleware::RequiredAuthMiddleware;
-use crate::{AuthError, OpenIdConfig};
-use jsonwebtoken::{DecodingKey, Validation};
-use openidconnect::RedirectUrl;
 use tower_layer::Layer;
 
 #[derive(Clone)]

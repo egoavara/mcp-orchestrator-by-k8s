@@ -2,28 +2,23 @@ use std::collections::HashMap;
 
 use axum::{
     body::Body,
-    extract::Query,
-    handler::Handler,
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::{
     CookieJar,
     cookie::{Cookie, SameSite},
 };
-use http::Request;
 use openidconnect::{
-    ClientId, ClientSecret, CsrfToken, Nonce, PkceCodeChallenge, RedirectUrl, Scope,
+    CsrfToken, Nonce, PkceCodeChallenge, Scope,
     core::CoreAuthenticationFlow,
 };
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::{AuthError, manager::AuthManager};
 
 pub(crate) const PKCE_COOKIE_VERIFIER_KEY: &str = "pkce_verifier";
 pub(crate) const PKCE_COOKIE_STATE_KEY: &str = "pkce_state";
 pub(crate) const PKCE_COOKIE_REDIRECT_URI_KEY: &str = "redirect_uri";
-pub(self) const PKCE_COOKIE_MAX_AGE_SECONDS: i64 = 600;
+const PKCE_COOKIE_MAX_AGE_SECONDS: i64 = 600;
 
 impl AuthManager {
     pub async fn authorize(
@@ -64,7 +59,7 @@ impl AuthManager {
             previous_query.insert(key.to_string(), value.clone());
         }
         let query_string = serde_qs::to_string(&previous_query)
-            .map_err(|e| AuthError::FailedPassthroughQueryParam(e))?;
+            .map_err(AuthError::FailedPassthroughQueryParam)?;
         auth_url.set_query(Some(&query_string));
 
         let state = csrf_token.secret().clone();
@@ -97,6 +92,6 @@ impl AuthManager {
             .add(cookie_state)
             .add(redirect_uri);
 
-        Ok((updated_cookies, Redirect::to(&auth_url.to_string())).into_response())
+        Ok((updated_cookies, Redirect::to(auth_url.as_ref())).into_response())
     }
 }

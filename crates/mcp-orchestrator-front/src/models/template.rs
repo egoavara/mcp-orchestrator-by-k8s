@@ -59,7 +59,7 @@ pub struct TemplateFormData {
 }
 
 impl TemplateFormData {
-    pub fn to_create_request(self) -> CreateMcpTemplateRequest {
+    pub fn into_create_request(self) -> CreateMcpTemplateRequest {
         let filtered_secret_envs: Vec<String> = self
             .secret_envs
             .into_iter()

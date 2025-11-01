@@ -3,29 +3,23 @@ use std::str;
 
 use crate::AuthError;
 use crate::jwks::{
-    LocalAlgorithmParameters, LocalEllipticCurveKeyParameters, LocalJwk, LocalJwkSet,
+    LocalAlgorithmParameters, LocalJwk, LocalJwkSet,
     LocalOctetKeyPairParameters,
 };
 use argon2::Argon2;
 use base64::Engine;
-use chrono::Local;
-use ed25519_dalek::SigningKey;
-use http::Uri;
 use jsonwebtoken::jwk::{
-    CommonParameters, Jwk, JwkSet, KeyAlgorithm, OctetKeyPairType, OctetKeyParameters, OctetKeyType,
+    CommonParameters, KeyAlgorithm, OctetKeyPairType,
 };
-use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Validation};
 use openidconnect::core::{
-    CoreClient, CoreJwsSigningAlgorithm, CoreResponseType, CoreSubjectIdentifierType,
+    CoreJwsSigningAlgorithm, CoreResponseType, CoreSubjectIdentifierType,
 };
 use openidconnect::{
-    AuthUrl, ClientId, ClientSecret, IssuerUrl, JsonWebKeySetUrl, RedirectUrl, ResponseTypes,
-    Scope, TokenUrl, core::CoreProviderMetadata,
+    AuthUrl, IssuerUrl, JsonWebKeySetUrl, ResponseTypes, TokenUrl, core::CoreProviderMetadata,
 };
-use openidconnect::{EndpointMaybeSet, EndpointNotSet, EndpointSet};
 use rand_chacha::{
     ChaCha20Rng,
-    rand_core::{CryptoRng, SeedableRng},
+    rand_core::SeedableRng,
 };
 use reqwest::Url;
 use serde::{Deserialize, Serialize};

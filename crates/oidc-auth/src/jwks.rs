@@ -77,7 +77,7 @@ pub struct LocalOctetKeyPairParameters {
 #[serde(untagged)]
 pub enum LocalAlgorithmParameters {
     EllipticCurve(LocalEllipticCurveKeyParameters),
-    RSA(LocalRSAKeyParameters),
+    Rsa(LocalRSAKeyParameters),
     OctetKey(OctetKeyParameters),
     OctetKeyPair(LocalOctetKeyPairParameters),
 }

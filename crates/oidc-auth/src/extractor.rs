@@ -4,9 +4,8 @@ use crate::manager::AuthManager;
 use crate::{AuthError, Claims};
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
-use axum::http::{HeaderValue, StatusCode};
+use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use jsonwebtoken::{DecodingKey, Validation, decode};
 
 #[derive(Clone)]
 pub struct AuthenticatedUser(pub Claims);

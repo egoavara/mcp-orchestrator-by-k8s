@@ -11,9 +11,9 @@ use jsonwebtoken::{DecodingKey, EncodingKey, Validation, jwk::JwkSet};
 use k8s_openapi::api::core::v1::Secret;
 use kube::{Api, api::ObjectMeta};
 use openidconnect::{
-    ClientId, ClientSecret, EndpointMaybeSet, EndpointNotSet, EndpointSet, RedirectUrl,
+    ClientId, ClientSecret, EndpointMaybeSet, EndpointNotSet, EndpointSet,
 };
-use rand::{CryptoRng, Rng, distributions::Alphanumeric};
+use rand::{Rng, distributions::Alphanumeric};
 use tower::{Layer, Service};
 
 use crate::{
@@ -37,7 +37,9 @@ pub struct AuthManager {
     >,
     pub(crate) default_namespace: String,
     pub(crate) remote_decoding_key: HashMap<String, DecodingKey>,
+    #[allow(dead_code)]
     pub(crate) local_decoding_key: HashMap<String, DecodingKey>,
+    #[allow(dead_code)]
     pub(crate) local_encoding_key: HashMap<String, EncodingKey>,
     pub(crate) base_url: String,
 }
@@ -106,7 +108,7 @@ impl AuthManager {
             let kid = jwk.common.key_id.clone().ok_or_else(|| {
                 AuthError::DiscoveryError("JWK is missing 'kid' field".to_string())
             })?;
-            let key = DecodingKey::from_jwk(&jwk).map_err(|e| {
+            let key = DecodingKey::from_jwk(jwk).map_err(|e| {
                 AuthError::DiscoveryError(format!("Failed to create DecodingKey: {}", e))
             })?;
             remote_decoding_key.insert(kid, key);
@@ -119,12 +121,10 @@ impl AuthManager {
         for jwk in &local_jwks.keys {
             let kid = jwk.common.key_id.clone().unwrap_or_else(|| {
                 rng.sample_iter(&Alphanumeric)
-                    .take(10)
-                    .map(char::from)
-                    .collect::<String>()
+                    .take(10).collect::<String>()
             });
-            let deckey = jwk_to_decoding_key(&jwk).map_err(|e| AuthError::DiscoveryError(e))?;
-            let enckey = jwk_to_encoding_key(&jwk).map_err(|e| AuthError::DiscoveryError(e))?;
+            let deckey = jwk_to_decoding_key(jwk).map_err(AuthError::DiscoveryError)?;
+            let enckey = jwk_to_encoding_key(jwk).map_err(AuthError::DiscoveryError)?;
             local_decoding_key.insert(kid.clone(), deckey);
             local_encoding_key.insert(kid, enckey);
         }

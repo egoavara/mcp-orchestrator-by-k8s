@@ -23,6 +23,7 @@ pub struct AuthState {
     pub access_token: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Clone, PartialEq, Serialize, Deserialize, Store)]
 #[store(storage = "local")]
 pub struct UserPreferences {
@@ -43,6 +44,7 @@ impl Default for UserPreferences {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
 pub enum Theme {
     Light,

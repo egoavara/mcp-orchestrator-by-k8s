@@ -1,9 +1,6 @@
 use axum::extract::Request;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use http::HeaderValue;
-use jsonwebtoken::{DecodingKey, Validation};
-use openidconnect::RedirectUrl;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -12,7 +9,7 @@ use tower::Service;
 
 use crate::extractor::extract_bearer_token;
 use crate::manager::AuthManager;
-use crate::{AuthError, AuthenticatedUser, OptionalAuthenticatedUser, manager};
+use crate::{AuthError, OptionalAuthenticatedUser};
 
 #[derive(Clone)]
 pub struct RequiredAuthMiddleware<S> {

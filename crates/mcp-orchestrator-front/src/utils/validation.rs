@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+#[allow(dead_code)]
 pub trait FormValidation {
     fn validate(&self) -> HashMap<String, String>;
 
@@ -47,8 +48,8 @@ pub fn validate_cpu(cpu: &str) -> Option<String> {
         return None;
     }
 
-    if cpu.ends_with('m') {
-        if cpu[..cpu.len() - 1].parse::<u32>().is_ok() {
+    if let Some(stripped) = cpu.strip_suffix('m') {
+        if stripped.parse::<u32>().is_ok() {
             return None;
         }
     } else if cpu.parse::<f64>().is_ok() {

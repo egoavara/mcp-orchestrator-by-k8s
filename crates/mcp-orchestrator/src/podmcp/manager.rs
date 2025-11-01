@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use futures::Stream;
 use k8s_openapi::api::{
     authentication::v1::{TokenReview, TokenReviewSpec},
-    core::v1::{Pod, ServiceAccount},
+    core::v1::Pod,
 };
 use kube::{
     Api,

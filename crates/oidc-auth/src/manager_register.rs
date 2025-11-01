@@ -1,10 +1,9 @@
 use axum::{
     Json,
     body::Body,
-    handler::Handler,
     response::{IntoResponse, Response},
 };
-use http::{Request, StatusCode};
+use http::StatusCode;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

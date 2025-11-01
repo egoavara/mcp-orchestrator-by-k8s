@@ -13,7 +13,7 @@ use crate::storage::resource_type::{
 use crate::storage::util_list::ListOption;
 use crate::storage::util_name::{decode_k8sname, encode_k8sname};
 use crate::storage::utils::{
-    add_safe_finalizer, data_elem, data_elem_jsonstr, data_elem_ojsonstr, del_safe_finalizer,
+    add_safe_finalizer, data_elem, data_elem_ojsonstr, del_safe_finalizer,
     parse_data_elem,
 };
 use crate::{
@@ -162,7 +162,7 @@ impl ResourceLimitStore {
     ) -> Result<ResourceLimitData, AppError> {
         let name = encode_k8sname(RESOURCE_TYPE_PREFIX_RESOURCE_LIMIT, name);
 
-        let mut data_vec = vec![
+        let data_vec = vec![
             data_elem(DATA_CPU, &data.cpu)?,
             data_elem(DATA_CPU_LIMIT, &data.cpu_limit)?,
             data_elem(DATA_MEMORY, &data.memory)?,

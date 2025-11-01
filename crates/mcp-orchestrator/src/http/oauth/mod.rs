@@ -1,10 +1,10 @@
 use axum::{
     Json, Router,
-    extract::{Query, Request, State},
+    extract::{Query, State},
     response::IntoResponse,
     routing::{get, post},
 };
-use axum_extra::extract::{CookieJar, cookie};
+use axum_extra::extract::CookieJar;
 use axum_qs::Qs;
 use oidc_auth::{CallbackQuery, RegisterRequest};
 
@@ -12,7 +12,7 @@ use crate::state::AppState;
 
 pub fn router(state: &AppState) -> Router<AppState> {
     let mut router = Router::new();
-    if let Some(oidc_manager) = &state.oidc_manager {
+    if let Some(_oidc_manager) = &state.oidc_manager {
         router = router
             .route("/authorize", get(handler_authorize))
             .route("/callback", get(handler_callback))

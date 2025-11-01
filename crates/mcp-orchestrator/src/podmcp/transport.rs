@@ -24,14 +24,16 @@ use tokio::sync::{
 use tokio_stream::wrappers::BroadcastStream;
 
 use crate::{
-    podmcp::{McpPodError, PodMcp, PodMcpRequest},
+    podmcp::{McpPodError, PodMcp},
     storage::{annotations::ANNOTATION_LAST_ACCESS_AT, store::KubeStore},
 };
 
 #[derive(Clone)]
 pub struct PodMcpTransport {
     pub(crate) session_id: String,
+    #[allow(dead_code)]
     last_event_time: Arc<Mutex<DateTime<Utc>>>,
+    #[allow(dead_code)]
     api: Api<Pod>,
     upstream_tx: mpsc::Sender<ClientJsonRpcMessage>,
     downstream_tx: broadcast::Sender<ServerJsonRpcMessage>,

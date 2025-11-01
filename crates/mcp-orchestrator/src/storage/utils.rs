@@ -212,9 +212,9 @@ pub fn parse_secret_elem<D: DeserializeOwned>(
 pub fn pick_created_at<R: ResourceExt>(r: &R) -> chrono::DateTime<chrono::Utc> {
     r.creation_timestamp()
         .map(|x| x.0)
-        .unwrap_or_else(|| chrono::Utc::now())
+        .unwrap_or_else(chrono::Utc::now)
 }
 
 pub fn pick_deleted_at<R: ResourceExt>(r: &R) -> Option<chrono::DateTime<chrono::Utc>> {
-    r.meta().deletion_timestamp.as_ref().map(|x| x.0.clone())
+    r.meta().deletion_timestamp.as_ref().map(|x| x.0)
 }

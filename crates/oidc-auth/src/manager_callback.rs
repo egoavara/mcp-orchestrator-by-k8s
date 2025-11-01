@@ -4,11 +4,10 @@ use axum::{
     Json,
     body::Body,
     extract::Query,
-    response::{IntoResponse, IntoResponseParts, Response, ResponseParts},
+    response::{IntoResponse, Response},
 };
 use axum_extra::extract::{CookieJar, cookie::Cookie};
 use http::StatusCode;
-use kube::client::AuthError;
 use openidconnect::{AuthorizationCode, OAuth2TokenResponse, PkceCodeVerifier, RedirectUrl};
 use serde::{Deserialize, Serialize};
 

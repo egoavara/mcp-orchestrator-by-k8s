@@ -1,4 +1,3 @@
-use axum::{Extension, handler::Handler};
 use serde::{Deserialize, Serialize};
 
 use crate::manager::AuthManager;

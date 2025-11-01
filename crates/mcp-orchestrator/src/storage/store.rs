@@ -30,6 +30,7 @@ impl KubeStore {
         &self.default_namespace
     }
 
+    #[allow(dead_code)]
     pub fn target_namespace(&self, namespace: Option<String>) -> String {
         namespace
             .as_deref()

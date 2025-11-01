@@ -9,7 +9,7 @@ use jsonwebtoken::{DecodingKey, EncodingKey};
 pub fn jwk_to_encoding_key(jwk: &LocalJwk) -> Result<EncodingKey, String> {
     match &jwk.algorithm {
         LocalAlgorithmParameters::OctetKeyPair(okp) => okp_to_encoding_key(okp),
-        LocalAlgorithmParameters::RSA(rsa) => rsa_to_encoding_key(rsa),
+        LocalAlgorithmParameters::Rsa(rsa) => rsa_to_encoding_key(rsa),
         LocalAlgorithmParameters::EllipticCurve(ec) => ec_to_encoding_key(ec),
         LocalAlgorithmParameters::OctetKey(oct) => EncodingKey::from_base64_secret(&oct.value)
             .map_err(|e| format!("Failed to create symmetric key: {}", e)),
@@ -20,7 +20,7 @@ pub fn jwk_to_decoding_key(jwk: &LocalJwk) -> Result<DecodingKey, String> {
     match &jwk.algorithm {
         LocalAlgorithmParameters::OctetKeyPair(okp) => DecodingKey::from_ed_components(&okp.x)
             .map_err(|e| format!("Failed to create OKP decoding key: {}", e)),
-        LocalAlgorithmParameters::RSA(rsa) => DecodingKey::from_rsa_components(&rsa.n, &rsa.e)
+        LocalAlgorithmParameters::Rsa(rsa) => DecodingKey::from_rsa_components(&rsa.n, &rsa.e)
             .map_err(|e| format!("Failed to create RSA decoding key: {}", e)),
         LocalAlgorithmParameters::EllipticCurve(ec) => {
             DecodingKey::from_ec_components(&ec.x, &ec.y)

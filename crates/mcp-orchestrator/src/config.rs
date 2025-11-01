@@ -264,6 +264,7 @@ impl Default for AuthConfig {
 }
 
 impl AppConfig {
+    #[allow(clippy::result_large_err)]
     pub fn load() -> Result<Self, figment::Error> {
         if let Some(err) = dotenvy::dotenv().err() {
             tracing::warn!("Failed to load .env file, ignore .env: {}", err);

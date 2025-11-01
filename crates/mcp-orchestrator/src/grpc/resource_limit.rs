@@ -1,7 +1,6 @@
 use proto::mcp::orchestrator::v1::*;
 use tonic::{Request, Response, Status};
 
-use crate::error::AppError;
 use crate::grpc::utils::convert_label_query;
 use crate::state::AppState;
 use crate::storage::ResourceLimitData;
@@ -32,7 +31,7 @@ fn from(rl: ResourceLimitData) -> ResourceLimitResponse {
             cpu_limit: rl.cpu_limit,
             memory_limit: rl.memory_limit,
             ephemeral_storage: rl.ephemeral_storage,
-            volumes: rl.volumes.into_iter().map(|(k, v)| (k, v)).collect(),
+            volumes: rl.volumes.into_iter().collect(),
             node_selector,
             node_affinity,
         }),

@@ -15,7 +15,7 @@ pub struct Props {
 #[derive(Debug)]
 enum LoadState {
     Loading,
-    Loaded(ResourceLimit),
+    Loaded(Box<ResourceLimit>),
     Error(String),
 }
 
@@ -38,7 +38,7 @@ pub fn resource_limit_detail(props: &Props) -> Html {
             wasm_bindgen_futures::spawn_local(async move {
                 let api = APICaller::new(auth_state.access_token.clone());
                 match api.get_resource_limit(&name).await {
-                    Ok(limit) => load_state.set(LoadState::Loaded(limit)),
+                    Ok(limit) => load_state.set(LoadState::Loaded(Box::new(limit))),
                     Err(e) => load_state.set(LoadState::Error(e)),
                 }
             });
