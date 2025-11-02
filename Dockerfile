@@ -82,7 +82,8 @@ RUN export RUST_TARGET=$(cat /rust_target.txt) && \
     esac && \
     echo "Building $TARGET_BINARY for target: $RUST_TARGET" && \
     cargo build --release --target $RUST_TARGET --bin $TARGET_BINARY && \
-    mv target/$RUST_TARGET/release/$TARGET_BINARY /app/$TARGET_BINARY
+    mv target/$RUST_TARGET/release/$TARGET_BINARY /app/$TARGET_BINARY && \
+    chmod +x /app/$TARGET_BINARY
 
 # ============================================================================
 # Stage 4: Runtime - Minimal runtime image
@@ -102,10 +103,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tini \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/$TARGET_BINARY /usr/local/bin/$TARGET_BINARY
-
-# Set executable permissions
-RUN chmod +x /usr/local/bin/$TARGET_BINARY
+# Copy binary with executable permissions
+COPY --from=builder --chmod=755 /app/$TARGET_BINARY /usr/local/bin/$TARGET_BINARY
 
 # OCI image labels for metadata
 # See: https://github.com/opencontainers/image-spec/blob/main/annotations.md
