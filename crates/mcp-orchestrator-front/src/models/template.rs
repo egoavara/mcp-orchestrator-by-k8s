@@ -10,6 +10,7 @@ pub struct Template {
     pub command: Vec<String>,
     pub args: Vec<String>,
     pub envs: HashMap<String, String>,
+    pub arg_envs: HashMap<String, String>,
     pub secret_envs: Vec<String>,
     pub resource_limit_name: Option<String>,
     pub authorization_name: Option<String>,
@@ -27,6 +28,7 @@ impl From<McpTemplateResponse> for Template {
             command: response.command,
             args: response.args,
             envs: response.envs,
+            arg_envs: response.arg_envs,
             secret_envs: response.secret_envs,
             resource_limit_name: if response.resource_limit_name.is_empty() {
                 None
@@ -52,6 +54,7 @@ pub struct TemplateFormData {
     pub command: Vec<String>,
     pub args: Vec<String>,
     pub envs: HashMap<String, String>,
+    pub arg_envs: HashMap<String, String>,
     pub secret_envs: Vec<String>,
     pub resource_limit_name: Option<String>,
     pub authorization_name: Option<String>,
@@ -78,6 +81,7 @@ impl TemplateFormData {
             command: self.command,
             args: self.args,
             envs: self.envs,
+            arg_envs: self.arg_envs,
             secret_envs: filtered_secret_envs,
             resource_limit_name: self.resource_limit_name.unwrap_or_default(),
             authorization_name: self.authorization_name,

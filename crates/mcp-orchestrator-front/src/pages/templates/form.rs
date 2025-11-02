@@ -7,7 +7,7 @@ use crate::models::state::AuthState;
 use crate::models::template::TemplateFormData;
 use crate::models::SessionState;
 use crate::routes::Route;
-use crate::utils::validation::{validate_docker_image, validate_name};
+use crate::utils::validation::{validate_docker_image, validate_name, validate_arg_env_key, validate_arg_env_name, validate_arg_env_value};
 use std::collections::HashMap;
 use yew::prelude::*;
 use yew_router::prelude::*;
@@ -267,6 +267,115 @@ pub fn template_form() -> Html {
         });
     }
 
+    // arg_env_items: (id, key, env_name, type)
+    let arg_env_items = use_state(Vec::<(usize, String, String, String)>::new);
+    let arg_env_counter = use_state(|| 0usize);
+
+    let on_add_arg_env = {
+        let arg_env_items = arg_env_items.clone();
+        let arg_env_counter = arg_env_counter.clone();
+        Callback::from(move |_| {
+            let mut items = (*arg_env_items).clone();
+            let id = *arg_env_counter;
+            items.push((id, String::new(), String::new(), "string".to_string()));
+            arg_env_items.set(items);
+            arg_env_counter.set(id + 1);
+        })
+    };
+
+    let on_remove_arg_env = {
+        let arg_env_items = arg_env_items.clone();
+        move |id: usize| {
+            let mut items = (*arg_env_items).clone();
+            items.retain(|(item_id, _, _, _)| *item_id != id);
+            arg_env_items.set(items);
+        }
+    };
+
+    let on_arg_env_key_change = {
+        let arg_env_items = arg_env_items.clone();
+        let errors = errors.clone();
+        move |id: usize, new_key: String| {
+            let mut items = (*arg_env_items).clone();
+            if let Some(item) = items.iter_mut().find(|(item_id, _, _, _)| *item_id == id) {
+                item.1 = new_key.clone();
+            }
+            arg_env_items.set(items);
+
+            // Validate key
+            let mut new_errors = (*errors).clone();
+            if !new_key.is_empty() {
+                if let Some(error) = validate_arg_env_key(&new_key) {
+                    new_errors.insert(format!("arg_env_key_{}", id), error);
+                } else {
+                    new_errors.remove(&format!("arg_env_key_{}", id));
+                }
+            } else {
+                new_errors.remove(&format!("arg_env_key_{}", id));
+            }
+            errors.set(new_errors);
+        }
+    };
+
+    let on_arg_env_name_change = {
+        let arg_env_items = arg_env_items.clone();
+        let errors = errors.clone();
+        move |id: usize, new_env_name: String| {
+            let mut items = (*arg_env_items).clone();
+            if let Some(item) = items.iter_mut().find(|(item_id, _, _, _)| *item_id == id) {
+                item.2 = new_env_name.clone();
+            }
+            arg_env_items.set(items);
+
+            // Validate env name
+            let mut new_errors = (*errors).clone();
+            if !new_env_name.is_empty() {
+                if let Some(error) = validate_arg_env_name(&new_env_name) {
+                    new_errors.insert(format!("arg_env_name_{}", id), error);
+                } else {
+                    new_errors.remove(&format!("arg_env_name_{}", id));
+                }
+            } else {
+                new_errors.remove(&format!("arg_env_name_{}", id));
+            }
+            errors.set(new_errors);
+        }
+    };
+
+    let on_arg_env_type_change = {
+        let arg_env_items = arg_env_items.clone();
+        move |id: usize, new_type: String| {
+            let mut items = (*arg_env_items).clone();
+            if let Some(item) = items.iter_mut().find(|(item_id, _, _, _)| *item_id == id) {
+                item.3 = new_type;
+            }
+            arg_env_items.set(items);
+        }
+    };
+
+    // Sync arg_env_items to form_data.arg_envs
+    {
+        let form_data = form_data.clone();
+        let arg_env_items = arg_env_items.clone();
+        use_effect_with(arg_env_items.clone(), move |items| {
+            let mut data = (*form_data).clone();
+            data.arg_envs = items
+                .iter()
+                .filter(|(_, k, _, _)| !k.is_empty())
+                .map(|(_, k, env_name, type_str)| {
+                    let value = if env_name.is_empty() {
+                        type_str.clone()
+                    } else {
+                        format!("{}: {}", env_name, type_str)
+                    };
+                    (k.clone(), value)
+                })
+                .collect();
+            form_data.set(data);
+            || ()
+        });
+    }
+
     let on_add_secret_env = {
         let form_data = form_data.clone();
         let is_loading_secrets = is_loading_secrets.clone();
@@ -373,6 +482,16 @@ pub fn template_form() -> Html {
                     "resource_limit_name".to_string(),
                     "Resource limit is required".to_string(),
                 );
+            }
+            
+            // Validate arg_envs
+            for (key, value) in &data.arg_envs {
+                if let Some(error) = validate_arg_env_key(key) {
+                    validation_errors.insert(format!("arg_env_key_{}", key), error);
+                }
+                if let Some(error) = validate_arg_env_value(value) {
+                    validation_errors.insert(format!("arg_env_value_{}", key), error);
+                }
             }
 
             if !validation_errors.is_empty() {
@@ -543,6 +662,131 @@ pub fn template_form() -> Html {
                         class="btn-secondary-small"
                     >
                         { "+ Add Environment Variable" }
+                    </button>
+                </div>
+
+                <div class="form-section">
+                    <label class="section-label">{ "Argument Environment Variables" }</label>
+                    <small class="form-help">{ "Define arguments that will be passed via HTTP headers (arg-{key}) and injected as environment variables in the Pod" }</small>
+
+                    { for arg_env_items.iter().map(|(id, key, env_name, type_str)| {
+                        let item_id = *id;
+                        let key_error = errors.get(&format!("arg_env_key_{}", item_id)).cloned();
+                        let name_error = errors.get(&format!("arg_env_name_{}", item_id)).cloned();
+
+                        let on_key_change = {
+                            let on_arg_env_key_change = on_arg_env_key_change.clone();
+                            Callback::from(move |e: Event| {
+                                let input: web_sys::HtmlInputElement = e.target_unchecked_into();
+                                on_arg_env_key_change(item_id, input.value());
+                            })
+                        };
+
+                        let on_env_name_change = {
+                            let on_arg_env_name_change = on_arg_env_name_change.clone();
+                            Callback::from(move |e: Event| {
+                                let input: web_sys::HtmlInputElement = e.target_unchecked_into();
+                                on_arg_env_name_change(item_id, input.value());
+                            })
+                        };
+
+                        let on_type_change = {
+                            let on_arg_env_type_change = on_arg_env_type_change.clone();
+                            Callback::from(move |e: Event| {
+                                let select: web_sys::HtmlSelectElement = e.target_unchecked_into();
+                                on_arg_env_type_change(item_id, select.value());
+                            })
+                        };
+
+                        let on_remove = {
+                            let on_remove_arg_env = on_remove_arg_env.clone();
+                            Callback::from(move |_| on_remove_arg_env(item_id))
+                        };
+
+                        html! {
+                            <div key={item_id}>
+                                <div class="label-row">
+                                    <input
+                                        type="text"
+                                        value={key.clone()}
+                                        onchange={on_key_change}
+                                        placeholder="key (starts with a-z)"
+                                        class="label-key"
+                                    />
+                                    <span>{ "=" }</span>
+                                    <input
+                                        type="text"
+                                        value={env_name.clone()}
+                                        onchange={on_env_name_change}
+                                        placeholder="ENV_NAME (optional, A-Z0-9_-)"
+                                        class="label-value"
+                                    />
+                                    <span>{ ":" }</span>
+                                    <select
+                                        onchange={on_type_change}
+                                        value={type_str.clone()}
+                                    >
+                                        <option value="string" selected={type_str == "string"}>{ "string" }</option>
+                                        <option value="string?" selected={type_str == "string?"}>{ "string?" }</option>
+                                    </select>
+                                    <button
+                                        type="button"
+                                        onclick={on_remove}
+                                        class="btn-danger-small"
+                                    >
+                                        { "×" }
+                                    </button>
+                                </div>
+                                { if key_error.is_some() || name_error.is_some() {
+                                    html! {
+                                        <div style="margin-top: 0.25rem;">
+                                            { if let Some(error) = key_error {
+                                                html! { <small class="error-text" style="display: block;">{ format!("Key: {}", error) }</small> }
+                                            } else {
+                                                html! {}
+                                            }}
+                                            { if let Some(error) = name_error {
+                                                html! { <small class="error-text" style="display: block;">{ format!("ENV_NAME: {}", error) }</small> }
+                                            } else {
+                                                html! {}
+                                            }}
+                                        </div>
+                                    }
+                                } else {
+                                    html! {}
+                                }}
+                                <small class="form-help" style="display: block; margin-top: 0.25rem;">
+                                    {{
+                                        let type_example = if type_str.as_str() == "string?" { 
+                                            "\"value\" or null" 
+                                        } else { 
+                                            "\"value\"" 
+                                        };
+                                        let final_env_name = if env_name.is_empty() { 
+                                            key.as_str() 
+                                        } else { 
+                                            env_name.as_str() 
+                                        };
+                                        
+                                        if env_name.is_empty() {
+                                            format!("HTTP Header = \"arg-{}: {}\" ⇒ Pod Env = \"{}={}\"", 
+                                                key, type_example, key, type_example)
+                                        } else {
+                                            format!("HTTP Header = \"arg-{}: {}\" ⇒ Pod Env = \"{}={}\"", 
+                                                key, type_example, final_env_name, type_example)
+                                        }
+                                    }}
+                                </small>
+                            </div>
+                        }
+                    })}
+
+                    <button
+                        type="button"
+                        onclick={on_add_arg_env}
+                        class="btn-secondary-small"
+                    >
+                        { "+ Add Argument Environment Variable" }
                     </button>
                 </div>
 

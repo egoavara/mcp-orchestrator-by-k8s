@@ -108,9 +108,13 @@ pub struct PodMcpRequest {
 }
 
 impl PodMcpSessionManager {
-    pub async fn create_session(&self, req: PodMcpRequest) -> Result<SessionId, McpPodError> {
+    pub async fn create_session(
+        &self,
+        req: PodMcpRequest,
+        args: HashMap<String, String>,
+    ) -> Result<SessionId, McpPodError> {
         let id = session_id();
-        let (pod, auth) = self.0.template.to_pod(&id, &self.1.client).await?;
+        let (pod, auth) = self.0.template.to_pod(&id, &self.1.client, args).await?;
         //
         self.assert_auth_check(&auth, &req).await?;
         //
