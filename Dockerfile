@@ -36,15 +36,8 @@ FROM --platform=$BUILDPLATFORM base AS builder
 
 # Build arguments
 ARG TARGETPLATFORM
-ARG TARGET_BINARY=mcp-orchestrator
 
 WORKDIR /app
-
-# Copy source code (after dependency cooking to preserve cache)
-COPY . .
-
-# Copy dependency recipe from planner stage
-COPY --from=planner /app/recipe.json recipe.json
 
 # Platform to Rust target triple mapping
 # Maps Docker platform names to Rust target triples
@@ -60,6 +53,9 @@ RUN export RUST_TARGET=$(cat /rust_target.txt) && \
     echo "Adding Rust target: $RUST_TARGET" && \
     rustup target add $RUST_TARGET
 
+# Copy dependency recipe from planner stage
+COPY --from=planner /app/recipe.json recipe.json
+
 # Cook dependencies (cached layer)
 # This layer is cached unless Cargo.toml changes, saving 5-10 minutes on rebuilds
 RUN export RUST_TARGET=$(cat /rust_target.txt) && \
@@ -71,6 +67,11 @@ RUN export RUST_TARGET=$(cat /rust_target.txt) && \
     esac && \
     cargo chef cook --release --target $RUST_TARGET --recipe-path recipe.json
 
+# Copy source code for build
+COPY . .
+
+# Add wasm32-unknown-unknown target for frontend build
+RUN rustup target add wasm32-unknown-unknown
 
 # Build application binary
 RUN export RUST_TARGET=$(cat /rust_target.txt) && \
@@ -80,10 +81,9 @@ RUN export RUST_TARGET=$(cat /rust_target.txt) && \
     "armv7-unknown-linux-gnueabihf") \
     export CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc ;; \
     esac && \
-    echo "Building $TARGET_BINARY for target: $RUST_TARGET" && \
-    cargo build --release --target $RUST_TARGET --bin $TARGET_BINARY && \
-    mv target/$RUST_TARGET/release/$TARGET_BINARY /app/$TARGET_BINARY && \
-    chmod +x /app/$TARGET_BINARY
+    echo "Building mcp-orchestrator for target: $RUST_TARGET" && \
+    cargo build --release --target $RUST_TARGET --bin mcp-orchestrator && \
+    mv target/$RUST_TARGET/release /app/build
 
 # ============================================================================
 # Stage 4: Runtime - Minimal runtime image
@@ -92,8 +92,6 @@ RUN export RUST_TARGET=$(cat /rust_target.txt) && \
 # ============================================================================
 FROM debian:bookworm-slim AS runtime
 
-# Build arguments
-ARG TARGET_BINARY=mcp-orchestrator
 
 # Install runtime dependencies
 # - ca-certificates: TLS/HTTPS support (required for Redis TLS, external APIs)
@@ -103,8 +101,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tini \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy binary with executable permissions
-COPY --from=builder --chmod=755 /app/$TARGET_BINARY /usr/local/bin/$TARGET_BINARY
+# Copy the correct binary from builder stage
+# The builder stage already moved the cross-compiled binary to /app/mcp-orchestrator
+# Docker buildx ensures the correct builder variant is used for each target platform
+COPY --from=builder --chmod=755 /app/build/mcp-orchestrator /usr/local/bin/mcp-orchestrator
 
 # OCI image labels for metadata
 # See: https://github.com/opencontainers/image-spec/blob/main/annotations.md
