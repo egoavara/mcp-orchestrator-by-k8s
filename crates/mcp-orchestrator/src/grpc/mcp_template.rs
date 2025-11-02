@@ -21,6 +21,7 @@ fn from(rl: McpTemplateData) -> McpTemplateResponse {
         command: rl.command,
         args: rl.args,
         envs: rl.envs,
+        arg_envs: rl.arg_envs,
         secret_envs: rl.secret_envs,
         resource_limit_name: rl.resource_limit_name,
         authorization_name: rl.authorization_name,
@@ -49,6 +50,7 @@ pub async fn create_mcp_template(
                 command: req.command,
                 args: req.args,
                 envs: req.envs,
+                arg_envs: req.arg_envs,
                 secret_envs: req.secret_envs,
                 resource_limit_name: req.resource_limit_name,
                 authorization_name: req.authorization_name.unwrap_or("anonymous".to_string()),
@@ -57,7 +59,10 @@ pub async fn create_mcp_template(
             },
         )
         .await
-        .map_err(|e| Status::internal(format!("Failed to create MCP template: {}", e)))?;
+        .map_err(|e| {
+            tracing::error!("Failed to create MCP template: {}", e);
+            Status::internal(format!("Failed to create MCP template: {}", e))
+        })?;
 
     Ok(Response::new(from(mt)))
 }

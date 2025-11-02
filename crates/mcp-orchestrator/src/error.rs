@@ -19,14 +19,13 @@ pub enum AppError {
     InvalidLabelKey(String),
 
     #[error("Invalid label value: {value} for key: {key}")]
-    InvalidLabelValue{
-        value: String,
-        key: String,
-    },
-
+    InvalidLabelValue { value: String, key: String },
 
     #[error("Invalid input: {0}")]
     InvalidInput(String),
+
+    #[error("Invalid arg env: {0}")]
+    InvalidArgEnv(String),
 
     #[error("JSON Patch error: {0}")]
     Patch(#[from] json_patch::PatchError),
@@ -42,6 +41,7 @@ impl IntoResponse for AppError {
             AppError::InvalidLabelKey(msg) => (axum::http::StatusCode::BAD_REQUEST, msg.clone()),
             AppError::InvalidInput(msg) => (axum::http::StatusCode::BAD_REQUEST, msg.clone()),
             AppError::ProtectedNamespace(msg) => (axum::http::StatusCode::FORBIDDEN, msg.clone()),
+            AppError::InvalidArgEnv(msg) => (axum::http::StatusCode::BAD_REQUEST, msg.clone()),
             _ => (
                 axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                 self.to_string(),

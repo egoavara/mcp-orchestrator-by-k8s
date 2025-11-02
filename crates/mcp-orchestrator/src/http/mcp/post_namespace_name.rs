@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use axum::{
     body::{Body, Bytes},
     extract::{Path, Request, State},
@@ -135,8 +137,31 @@ pub async fn handler(
             }
         }
     } else {
+        let args = part
+            .headers
+            .iter()
+            .filter(|(name, _)| name.as_str().starts_with("arg-"))
+            .filter_map(|(name, value)| {
+                let Some(key) = name.as_str().strip_prefix("arg-") else {
+                    return None;
+                };
+                let value = match value.to_str() {
+                    Ok(value) => value.to_string(),
+                    Err(err) => {
+                        tracing::warn!(
+                            "Failed to parse arg- header value for key {}: {}",
+                            key,
+                            err
+                        );
+                        return None;
+                    }
+                };
+                Some((key.to_string(), value))
+            })
+            .collect::<HashMap<_, _>>();
+
         let session_id = session_manager
-            .create_session(req)
+            .create_session(req, args)
             .await
             .map_err(internal_error_response("create session"))?;
         if let ClientJsonRpcMessage::Request(req) = &mut message {
