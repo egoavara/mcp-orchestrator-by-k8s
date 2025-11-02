@@ -1,9 +1,4 @@
 use chrono::Duration;
-use k8s_openapi::api::{
-    authentication::v1::{TokenRequest, TokenRequestSpec},
-    core::v1::ServiceAccount,
-};
-use kube::{Api, api::PostParams};
 use proto::mcp::orchestrator::v1::{
     AuthorizationType, GenerateTokenRequest, GenerateTokenResponse,
 };

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use kube::runtime::events::{Recorder, Reporter};
+use oidc_auth::{AuthManager, RequiredAuthLayer};
 use proto::mcp::orchestrator::v1::mcp_orchestrator_service_server::McpOrchestratorServiceServer;
 use tokio_util::sync::CancellationToken;
 use tower::ServiceBuilder;
@@ -39,12 +40,13 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Starting MCP Orchestrator (gRPC-Web)");
     info!("Configuration loaded:");
-    info!("  Server: {}:{}", config.server.host, config.server.port);
+    info!("  Server: {}:{}", config.server.ip_addr, config.server.port);
     info!("  Log level: {}", config.server.log_level);
     info!("  Kubernetes namespace: {}", config.kubernetes.namespace);
     if let Some(ctx) = &config.kubernetes.context {
         info!("  Kubernetes context: {}", ctx);
     }
+    info!("  Auth OpenID configured: {}", config.auth.openid.is_some());
 
     let kube_client = kube::Client::try_default()
         .await
@@ -64,6 +66,20 @@ async fn main() -> anyhow::Result<()> {
         .context("Failed to ensure default namespace")?;
     info!("Default namespace ready");
 
+    let oidc_manager = match &config.auth.openid {
+        Some(oidc_config) => Some(
+            AuthManager::new(
+                oidc_config.clone(),
+                kube_client.clone(),
+                &config.kubernetes.namespace,
+                &config.server.url,
+            )
+            .await
+            .context("Failed to initialize OIDC AuthManager")?,
+        ),
+        None => None,
+    };
+
     let state = AppState {
         kube_store: KubeStore::new(kube_client.clone(), &config.kubernetes.namespace),
         kube_client: kube_client.clone(),
@@ -79,6 +95,7 @@ async fn main() -> anyhow::Result<()> {
             &config.kubernetes.namespace,
         )),
         config: Arc::new(config.clone()),
+        oidc_manager,
     };
 
     let grpc_service = GrpcService::new(state.clone());
@@ -94,7 +111,7 @@ async fn main() -> anyhow::Result<()> {
         .allow_headers(Any)
         .allow_methods(Any);
 
-    let http_router = router().with_state(state.clone());
+    let http_router = router(&state).with_state(state.clone());
 
     let grpc_with_reflection = axum::Router::new()
         .route_service(
@@ -108,13 +125,18 @@ async fn main() -> anyhow::Result<()> {
             ServiceBuilder::new()
                 .layer(tonic_web::GrpcWebLayer::new())
                 .service(reflection_service),
-        );
+        )
+        .layer(RequiredAuthLayer);
 
-    let app = http_router
+    let mut app = http_router
         .merge(grpc_with_reflection)
-        .fallback(http::fallback::handler);
+        .fallback(http::fallback::handler)
+        .layer(cors);
+    if let Some(oidc) = &state.oidc_manager {
+        app = app.layer(oidc.clone());
+    }
 
-    let addr = format!("{}:{}", config.server.host, config.server.port);
+    let addr = format!("{}:{}", config.server.ip_addr, config.server.port);
 
     info!("Server listening on {} (HTTP + gRPC-Web)", addr);
 
@@ -123,7 +145,7 @@ async fn main() -> anyhow::Result<()> {
     });
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
-    axum::serve(listener, app.layer(cors)).await?;
+    axum::serve(listener, app).await?;
 
     Ok(())
 }

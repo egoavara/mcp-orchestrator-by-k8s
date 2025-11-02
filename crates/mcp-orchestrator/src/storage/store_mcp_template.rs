@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::LazyLock,
+};
 
 use chrono::{DateTime, Duration, Utc};
 use k8s_openapi::api::core::v1::{ConfigMap, Container, EnvVar, Pod, PodSpec};
@@ -24,7 +27,7 @@ use crate::{
             RESOURCE_TYPE_PREFIX_MCP_TEMPLATE, RESOURCE_TYPE_RESOURCE_LIMIT, RESOURCE_TYPE_SECRET,
         },
         store::KubeStore,
-        store_authorization::{self, AuthorizationData, AuthorizationStore},
+        store_authorization::{AuthorizationData, AuthorizationStore},
         util_delete::{DeleteOption, DeleteResult},
         util_list::ListOption,
         util_name::{decode_k8sname, encode_k8sname},
@@ -33,6 +36,14 @@ use crate::{
         },
     },
 };
+
+static LAZY_ARG_ENV_KEY: LazyLock<regex::Regex> =
+    LazyLock::new(|| regex::Regex::new(r"^[a-z][a-z0-9-]*$").unwrap());
+
+static LAZY_ARG_ENV_VALUE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r"^((?<ENV_NAME>[A-Za-z0-9_-]+)\s*:\s*)?(?<TYPENAME>[a-z][a-z0-9-]*\??)$")
+        .unwrap()
+});
 
 const FINALIZER_NAME: &str = "mcp-orchestrator.egoavara.net/mcp-template";
 const DATA_IMAGE: &str = "image";
@@ -47,6 +58,11 @@ const DATA_SECRET_MOUNTS: &str = "secret_mounts";
 fn data_env_var(name: &str) -> String {
     format!("env_{}", name)
 }
+
+fn data_arg_env_var(name: &str) -> String {
+    format!("arg_env_{}", name)
+}
+
 fn parse_env_var(key: &str) -> Option<String> {
     if key.starts_with("env_") {
         let key = key.trim_start_matches("env_");
@@ -54,6 +70,40 @@ fn parse_env_var(key: &str) -> Option<String> {
     } else {
         None
     }
+}
+
+fn parse_arg_env_var(key: &str) -> Option<String> {
+    if key.starts_with("arg_env_") {
+        let key = key.trim_start_matches("arg_env_");
+        Some(key.to_string())
+    } else {
+        None
+    }
+}
+
+fn assert_valid_arg_env_key(key: &str) -> Result<(), AppError> {
+    if LAZY_ARG_ENV_KEY.is_match(key) {
+        Ok(())
+    } else {
+        Err(AppError::InvalidInput(format!(
+            "Invalid arg_env key: {}",
+            key
+        )))
+    }
+}
+
+fn assert_valid_arg_env_value(key: &str, value: &str) -> Result<(String, String), AppError> {
+    LAZY_ARG_ENV_VALUE
+        .captures(value)
+        .and_then(|caps| {
+            let typename = caps.name("TYPENAME")?.as_str().to_string();
+            let env_name = caps
+                .name("ENV_NAME")
+                .map(|m| m.as_str().to_string())
+                .unwrap_or_else(|| key.to_string());
+            Some((env_name, typename))
+        })
+        .ok_or_else(|| AppError::InvalidArgEnv(value.to_string()))
 }
 
 pub struct McpTemplateData {
@@ -65,6 +115,7 @@ pub struct McpTemplateData {
     pub command: Vec<String>,
     pub args: Vec<String>,
     pub envs: HashMap<String, String>,
+    pub arg_envs: HashMap<String, String>,
     pub secret_envs: Vec<String>,
     pub resource_limit_name: String,
     pub authorization_name: String,
@@ -86,12 +137,15 @@ impl McpTemplateData {
         let secret_mounts: Vec<v1::SecretMount> = parse_data_elem(&cm.data, DATA_SECRET_MOUNTS)?;
 
         let mut envs: HashMap<String, String> = HashMap::new();
+        let mut arg_envs: HashMap<String, String> = HashMap::new();
         if let Some(data) = &cm.data {
             for (key, value) in data.iter() {
-                let Some(key) = parse_env_var(key) else {
-                    continue;
-                };
-                envs.insert(key, value.clone());
+                if let Some(key) = parse_env_var(key) {
+                    envs.insert(key, value.clone());
+                }
+                if let Some(key) = parse_arg_env_var(key) {
+                    arg_envs.insert(key, value.clone());
+                }
             }
         }
 
@@ -115,6 +169,7 @@ impl McpTemplateData {
             command,
             args,
             envs,
+            arg_envs,
             secret_envs,
             resource_limit_name,
             authorization_name,
@@ -182,9 +237,10 @@ impl McpTemplateData {
         &self,
         session_id: &SessionId,
         client: &KubeStore,
+        args: HashMap<String, String>,
     ) -> Result<(Pod, AuthorizationData), AppError> {
         let resource_limit_store = client.resource_limits();
-        let store_auth = client.authorization(Some(self.namespace.clone()));
+        let _store_auth = client.authorization(Some(self.namespace.clone()));
 
         let Some(resource_limit) = resource_limit_store.get(&self.resource_limit_name).await?
         else {
@@ -215,6 +271,7 @@ impl McpTemplateData {
                 },
             );
         }
+
         for secret_name in self.secret_envs.iter() {
             let secret = secrets.get(secret_name).ok_or_else(|| {
                 AppError::Internal(format!(
@@ -241,6 +298,35 @@ impl McpTemplateData {
             }
         }
 
+        for (arg_key, arg_val) in self.arg_envs.iter() {
+            let (env_name, env_type) = assert_valid_arg_env_value(arg_key, arg_val)?;
+            match env_type.as_str() {
+                "string" => {
+                    if !args.contains_key(arg_key.as_str()) {
+                        return Err(AppError::InvalidArgEnv(format!(
+                            "Argument {} not provided for McpTemplate {}/{}",
+                            arg_key, self.namespace, self.name
+                        )));
+                    }
+                }
+                "string?" => {}
+                _ => {
+                    return Err(AppError::InvalidArgEnv(arg_val.clone()));
+                }
+            }
+            let Some(real_val) = args.get(arg_key).cloned() else {
+                continue;
+            };
+            envs.insert(
+                env_name.clone(),
+                EnvVar {
+                    name: env_name,
+                    value: Some(real_val),
+                    ..Default::default()
+                },
+            );
+        }
+
         let envs = envs.into_values().collect();
         let requirement = resource_limit.to_resource_requirements();
         tracing::debug!(
@@ -249,7 +335,7 @@ impl McpTemplateData {
             requirement
         );
 
-        let mut pod_spec = PodSpec {
+        let pod_spec = PodSpec {
             containers: vec![Container {
                 name: "main".to_string(),
                 image: Some(self.image.clone()),
@@ -299,6 +385,7 @@ pub struct McpTemplateCreate {
     pub command: Vec<String>,
     pub args: Vec<String>,
     pub envs: HashMap<String, String>,
+    pub arg_envs: HashMap<String, String>,
     pub secret_envs: Vec<String>,
     pub resource_limit_name: String,
     pub authorization_name: String,
@@ -331,10 +418,15 @@ impl McpTemplateStore {
     ) -> Result<McpTemplateData, AppError> {
         let name = encode_k8sname(RESOURCE_TYPE_PREFIX_MCP_TEMPLATE, name);
         let api = self.api();
+        // 검증
+        for (arg_key, arg_val) in &data.arg_envs {
+            assert_valid_arg_env_key(arg_key)?;
+            assert_valid_arg_env_value(arg_key, arg_val)?;
+        }
+
+        //
         let resource_limit_store =
             ResourceLimitStore::new(self.client.clone(), self.default_namespace.clone());
-        let store_authorization =
-            AuthorizationStore::new(self.client.clone(), self.target_namespace.clone());
 
         let resource_limit = resource_limit_store
             .get(&data.resource_limit_name)
@@ -351,8 +443,9 @@ impl McpTemplateStore {
             &data.secret_mounts,
         )
         .await?;
-        let store_authorization = AuthorizationStore::new(self.client.clone(), self.target_namespace.clone());
-        let authorization = store_authorization
+        let store_authorization =
+            AuthorizationStore::new(self.client.clone(), self.target_namespace.clone());
+        let _authorization = store_authorization
             .get(&data.authorization_name)
             .await?
             .ok_or_else(|| {
@@ -401,6 +494,11 @@ impl McpTemplateStore {
                     data.envs
                         .iter()
                         .map(|(key, value)| (data_env_var(key), value.clone())),
+                )
+                .chain(
+                    data.arg_envs
+                        .iter()
+                        .map(|(key, value)| (data_arg_env_var(key), value.clone())),
                 )
                 .collect(),
             ),

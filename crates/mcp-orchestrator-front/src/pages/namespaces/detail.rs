@@ -1,9 +1,11 @@
-use crate::api::namespaces::get_namespace;
+use crate::api::APICaller;
 use crate::components::{ErrorMessage, Loading};
 use crate::models::namespace::Namespace;
+use crate::models::state::AuthState;
 use crate::routes::Route;
 use yew::prelude::*;
 use yew_router::prelude::*;
+use yewdux::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
@@ -21,13 +23,16 @@ enum LoadState {
 pub fn namespace_detail(props: &Props) -> Html {
     let load_state = use_state(|| LoadState::Loading);
     let name = props.name.clone();
+    let (auth_state, _) = use_store::<AuthState>();
 
     {
         let load_state = load_state.clone();
         let name = name.clone();
+        let auth_state = auth_state.clone();
         use_effect_with(name.clone(), move |_| {
             wasm_bindgen_futures::spawn_local(async move {
-                match get_namespace(&name).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.get_namespace(&name).await {
                     Ok(namespace) => load_state.set(LoadState::Loaded(namespace)),
                     Err(e) => load_state.set(LoadState::Error(e)),
                 }

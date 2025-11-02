@@ -1,9 +1,11 @@
-use crate::api::authorizations::{delete_authorization, generate_token, get_authorization};
+use crate::api::APICaller;
 use crate::components::{ConfirmDialog, ErrorMessage, Loading};
 use crate::models::authorization::Authorization;
+use crate::models::state::AuthState;
 use crate::routes::Route;
 use yew::prelude::*;
 use yew_router::prelude::*;
+use yewdux::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
@@ -25,6 +27,7 @@ pub fn authorization_detail(props: &Props) -> Html {
     let is_deleting = use_state(|| false);
     let delete_error = use_state(|| Option::<String>::None);
     let navigator = use_navigator().unwrap();
+    let (auth_state, _) = use_store::<AuthState>();
 
     let show_generate_token = use_state(|| false);
     let is_generating_token = use_state(|| false);
@@ -39,9 +42,11 @@ pub fn authorization_detail(props: &Props) -> Html {
         let load_state = load_state.clone();
         let namespace = namespace.clone();
         let name = name.clone();
+        let auth_state = auth_state.clone();
         use_effect_with((namespace.clone(), name.clone()), move |_| {
             wasm_bindgen_futures::spawn_local(async move {
-                match get_authorization(namespace, name).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.get_authorization(namespace, name).await {
                     Ok(authorization) => load_state.set(LoadState::Loaded(authorization)),
                     Err(e) => load_state.set(LoadState::Error(e)),
                 }
@@ -64,6 +69,7 @@ pub fn authorization_detail(props: &Props) -> Html {
         let navigator = navigator.clone();
         let namespace = namespace.clone();
         let name = name.clone();
+        let auth_state = auth_state.clone();
 
         Callback::from(move |_| {
             is_deleting.set(true);
@@ -73,9 +79,11 @@ pub fn authorization_detail(props: &Props) -> Html {
             let navigator = navigator.clone();
             let namespace = namespace.clone();
             let name = name.clone();
+            let auth_state = auth_state.clone();
 
             wasm_bindgen_futures::spawn_local(async move {
-                match delete_authorization(namespace, name).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.delete_authorization(namespace, name).await {
                     Ok(_) => {
                         navigator.push(&Route::AuthorizationList);
                     }
@@ -122,6 +130,7 @@ pub fn authorization_detail(props: &Props) -> Html {
         let expire_days = expire_days.clone();
         let namespace = namespace.clone();
         let name = name.clone();
+        let auth_state = auth_state.clone();
 
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
@@ -139,9 +148,11 @@ pub fn authorization_detail(props: &Props) -> Html {
             let token_error = token_error.clone();
             let namespace = namespace.clone();
             let name = name.clone();
+            let auth_state = auth_state.clone();
 
             wasm_bindgen_futures::spawn_local(async move {
-                match generate_token(namespace, name, days).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.generate_token(namespace, name, days).await {
                     Ok(result) => {
                         token_result.set(Some(result));
                         is_generating_token.set(false);

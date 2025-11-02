@@ -1,3 +1,4 @@
+use crate::components::UserMenu;
 use crate::routes::Route;
 use yew::prelude::*;
 use yew_router::prelude::*;
@@ -17,26 +18,9 @@ pub fn navbar(props: &NavbarProps) -> Html {
                     <h1>{"MCP Orchestrator"}</h1>
                 </Link<Route>>
             </div>
-            <div class="navbar-menu">
-                <Link<Route> to={Route::NamespaceList} classes="nav-link">
-                    {"Namespaces"}
-                </Link<Route>>
-                <Link<Route> to={Route::TemplateList} classes="nav-link">
-                    {"Templates"}
-                </Link<Route>>
-                <Link<Route> to={Route::ServerList} classes="nav-link">
-                    {"Servers"}
-                </Link<Route>>
-                <Link<Route> to={Route::SecretList} classes="nav-link">
-                    {"Secrets"}
-                </Link<Route>>
-                <Link<Route> to={Route::ResourceLimitList} classes="nav-link">
-                    {"Resource Limits"}
-                </Link<Route>>
-                <Link<Route> to={Route::AuthorizationList} classes="nav-link">
-                    {"Authorizations"}
-                </Link<Route>>
+            <div class="navbar-right">
                 {for props.children.iter()}
+                <UserMenu />
             </div>
         </nav>
     }

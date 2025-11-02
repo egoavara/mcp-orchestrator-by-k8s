@@ -8,6 +8,22 @@ pub struct SessionState {
     pub breadcrumbs: Vec<String>,
 }
 
+#[derive(Default, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OAuthConfig {
+    pub issuer: String,
+    pub authorization_endpoint: String,
+    pub token_endpoint: String,
+}
+
+#[derive(Default, Clone, PartialEq, Serialize, Deserialize, Store)]
+#[store(storage = "local", storage_tab_sync)]
+pub struct AuthState {
+    pub oauth_config: Option<OAuthConfig>,
+    pub oauth_required: bool,
+    pub access_token: Option<String>,
+}
+
+#[allow(dead_code)]
 #[derive(Clone, PartialEq, Serialize, Deserialize, Store)]
 #[store(storage = "local")]
 pub struct UserPreferences {
@@ -28,6 +44,7 @@ impl Default for UserPreferences {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
 pub enum Theme {
     Light,

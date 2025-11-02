@@ -3,6 +3,16 @@ name = "proto"
 edition.workspace = true
 version.workspace = true
 
+[package.metadata.cargo-machete]
+ignored = [
+    "prost",
+    "prost-wkt",
+    "prost-wkt-types",
+    "tonic",
+    "tonic-prost",
+    "serde",
+]
+
 [dependencies]
 prost = { workspace = true }
 prost-wkt = { workspace = true }

@@ -1,9 +1,8 @@
-use std::fmt::Debug;
 
-use crate::{podmcp::McpPodError, storage::label_query::LabelQuery};
+use crate::storage::label_query::LabelQuery;
 use prost_wkt_types::Any;
 use proto::mcp::orchestrator::v1::{self, LabelKeyValue, LabelKeyValues};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Serialize, de::DeserializeOwned};
 use tonic::Status;
 
 pub fn convert_label_query(label: v1::LabelQuery) -> Vec<LabelQuery> {
@@ -29,12 +28,14 @@ pub fn convert_label_query(label: v1::LabelQuery) -> Vec<LabelQuery> {
     queries
 }
 
+#[allow(dead_code)]
 pub fn convert_from_any<D: DeserializeOwned>(value: &Any) -> Result<D, Status> {
     let s = serde_json::from_slice(&value.value)
         .map_err(|e| Status::invalid_argument(format!("Failed to deserialize Any: {}", e)))?;
     Ok(s)
 }
 
+#[allow(dead_code)]
 pub fn convert_to_any<S: Serialize + ?Sized>(value: &S) -> Result<Any, Status> {
     let type_id = std::any::type_name::<S>();
 
@@ -45,20 +46,6 @@ pub fn convert_to_any<S: Serialize + ?Sized>(value: &S) -> Result<Any, Status> {
         value: bytes,
     })
 }
-
-// pub fn to_wkt_time(dt: chrono::DateTime<chrono::Utc>) -> prost_wkt_types::Timestamp {
-//     prost_wkt_types::Timestamp {
-//         seconds: dt.timestamp(),
-//         nanos: dt.timestamp_subsec_nanos() as i32,
-//     }
-// }
-
-// pub fn to_wkt_time(dt: chrono::DateTime<chrono::Utc>) -> prost_wkt_types::Timestamp {
-//     prost_wkt_types::Timestamp {
-//         seconds: dt.timestamp(),
-//         nanos: dt.timestamp_subsec_nanos() as i32,
-//     }
-// }
 
 pub trait ProtoWktTime {
     fn to_wkt_time(&self) -> prost_wkt_types::Timestamp;
@@ -86,7 +73,7 @@ impl ProtoWktTime for chrono::NaiveDateTime {
 
 impl ProtoWktTime for k8s_openapi::apimachinery::pkg::apis::meta::v1::Time {
     fn to_wkt_time(&self) -> prost_wkt_types::Timestamp {
-        let dt = self.0.clone();
+        let dt = self.0;
         dt.to_wkt_time()
     }
 }

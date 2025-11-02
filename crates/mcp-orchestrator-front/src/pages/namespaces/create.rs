@@ -1,11 +1,13 @@
-use crate::api::namespaces::create_namespace;
+use crate::api::APICaller;
 use crate::components::{ErrorMessage, FormField};
+use crate::models::state::AuthState;
 use crate::routes::Route;
 use crate::utils::validation::validate_name;
 use proto_web::CreateNamespaceRequest;
 use std::collections::HashMap;
 use yew::prelude::*;
 use yew_router::prelude::*;
+use yewdux::prelude::*;
 
 #[derive(Default, Clone, PartialEq)]
 struct NamespaceFormData {
@@ -20,6 +22,7 @@ pub fn namespace_create() -> Html {
     let is_submitting = use_state(|| false);
     let submit_error = use_state(|| Option::<String>::None);
     let navigator = use_navigator().unwrap();
+    let (auth_state, _) = use_store::<AuthState>();
 
     let on_name_change = {
         let form_data = form_data.clone();
@@ -87,6 +90,7 @@ pub fn namespace_create() -> Html {
         let is_submitting = is_submitting.clone();
         let submit_error = submit_error.clone();
         let navigator = navigator.clone();
+        let auth_state = auth_state.clone();
 
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
@@ -112,6 +116,7 @@ pub fn namespace_create() -> Html {
             let is_submitting = is_submitting.clone();
             let submit_error = submit_error.clone();
             let navigator = navigator.clone();
+            let auth_state = auth_state.clone();
 
             wasm_bindgen_futures::spawn_local(async move {
                 let labels_map: HashMap<String, String> = data
@@ -125,7 +130,8 @@ pub fn namespace_create() -> Html {
                     labels: labels_map,
                 };
 
-                match create_namespace(request).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.create_namespace(request).await {
                     Ok(namespace) => {
                         navigator.push(&Route::NamespaceDetail {
                             name: namespace.name,

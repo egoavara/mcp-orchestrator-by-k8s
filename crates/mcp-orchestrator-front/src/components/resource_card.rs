@@ -1,5 +1,6 @@
 use yew::prelude::*;
 
+#[allow(dead_code)]
 #[derive(Properties, PartialEq)]
 pub struct ResourceCardProps {
     pub title: String,

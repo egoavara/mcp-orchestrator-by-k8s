@@ -1,4 +1,4 @@
-use crate::components::Navbar;
+use crate::components::{Navbar, Sidebar};
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
@@ -11,9 +11,12 @@ pub fn layout(props: &LayoutProps) -> Html {
     html! {
         <div class="layout">
             <Navbar />
-            <main class="main-content">
-                {for props.children.iter()}
-            </main>
+            <div class="layout-body">
+                <Sidebar />
+                <main class="main-content">
+                    {for props.children.iter()}
+                </main>
+            </div>
         </div>
     }
 }

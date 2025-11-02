@@ -1,9 +1,12 @@
-use crate::api::templates::{delete_template, get_template};
-use crate::components::{ConfirmDialog, ErrorMessage, Loading};
+use crate::api::APICaller;
+use crate::components::{ConfirmDialog, CopyConfigDialog, ErrorMessage, Loading};
+use crate::models::authorization::Authorization;
+use crate::models::state::AuthState;
 use crate::models::template::Template;
 use crate::routes::Route;
 use yew::prelude::*;
 use yew_router::prelude::*;
+use yewdux::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct TemplateDetailProps {
@@ -14,25 +17,46 @@ pub struct TemplateDetailProps {
 #[derive(Debug)]
 enum LoadState {
     Loading,
-    Loaded(Template),
+    Loaded(Box<Template>),
     Error(String),
 }
 
 #[function_component(TemplateDetail)]
 pub fn template_detail(props: &TemplateDetailProps) -> Html {
     let load_state = use_state(|| LoadState::Loading);
+    let authorization_state = use_state(|| Option::<Authorization>::None);
     let show_delete_dialog = use_state(|| false);
+    let show_copy_dialog = use_state(|| false);
+    let copy_config = use_state(|| String::new());
     let navigator = use_navigator().unwrap();
+    let (auth_state, _) = use_store::<AuthState>();
 
     {
         let load_state = load_state.clone();
+        let authorization_state = authorization_state.clone();
         let namespace = props.namespace.clone();
         let name = props.name.clone();
+        let auth_state = auth_state.clone();
 
         use_effect_with((namespace.clone(), name.clone()), move |_| {
             wasm_bindgen_futures::spawn_local(async move {
-                match get_template(&namespace, &name).await {
-                    Ok(template) => load_state.set(LoadState::Loaded(template)),
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.get_template(&namespace, &name).await {
+                    Ok(template) => {
+                        // Load authorization if specified
+                        if let Some(auth_name) = &template.authorization_name {
+                            if !auth_name.is_empty() {
+                                match api.get_authorization(template.namespace.clone(), auth_name.clone()).await {
+                                    Ok(auth) => authorization_state.set(Some(auth)),
+                                    Err(e) => {
+                                        web_sys::console::error_1(&format!("Failed to load authorization: {}", e).into());
+                                        authorization_state.set(None);
+                                    }
+                                }
+                            }
+                        }
+                        load_state.set(LoadState::Loaded(Box::new(template)));
+                    }
                     Err(e) => load_state.set(LoadState::Error(e)),
                 }
             });
@@ -51,12 +75,15 @@ pub fn template_detail(props: &TemplateDetailProps) -> Html {
         let namespace = props.namespace.clone();
         let name = props.name.clone();
         let navigator = navigator.clone();
+        let auth_state = auth_state.clone();
         Callback::from(move |_| {
             let namespace = namespace.clone();
             let name = name.clone();
             let navigator = navigator.clone();
+            let auth_state = auth_state.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                match delete_template(&namespace, &name).await {
+                let api = APICaller::new(auth_state.access_token.clone());
+                match api.delete_template(&namespace, &name).await {
                     Ok(_) => {
                         navigator.push(&Route::TemplateList);
                     }
@@ -75,6 +102,89 @@ pub fn template_detail(props: &TemplateDetailProps) -> Html {
         })
     };
 
+    let generate_mcp_config = |template: &Template, authorization: &Option<Authorization>| -> String {
+        let current_origin = web_sys::window()
+            .and_then(|w| w.location().origin().ok())
+            .unwrap_or_else(|| "http://localhost:8080".to_string());
+        
+        let url = format!("{}/mcp/{}/{}", current_origin, template.namespace, template.name);
+        
+        let has_arg_envs = !template.arg_envs.is_empty();
+        let has_k8s_sa_auth = authorization
+            .as_ref()
+            .map(|auth| auth.auth_type == 1) // KUBERNETES_SERVICE_ACCOUNT = 1
+            .unwrap_or(false);
+        
+        let mut headers = Vec::new();
+        
+        // Add arg-env headers
+        if has_arg_envs {
+            for (key, value) in &template.arg_envs {
+                let type_example = if value.contains("?") || value.ends_with("?") {
+                    "\"value\" or null"
+                } else {
+                    "\"value\""
+                };
+                headers.push(format!("    \"arg-{}\": {}", key, type_example));
+            }
+        }
+        
+        // Add Authorization header if K8s SA
+        if has_k8s_sa_auth {
+            headers.push(format!("    \"Authorization\": \"Bearer <token>\""));
+        }
+        
+        if !headers.is_empty() {
+            format!(
+r#"{{
+  "mcpServers": {{
+    "{}": {{
+      "type": "remote",
+      "url": "{}",
+      "headers": {{
+{}
+      }}
+    }}
+  }}
+}}"#,
+                template.name,
+                url,
+                headers.join(",\n")
+            )
+        } else {
+            format!(
+r#"{{
+  "mcpServers": {{
+    "{}": {{
+      "type": "remote",
+      "url": "{}"
+    }}
+  }}
+}}"#,
+                template.name,
+                url
+            )
+        }
+    };
+
+    let on_copy_config = {
+        let show_copy_dialog = show_copy_dialog.clone();
+        let copy_config = copy_config.clone();
+        let authorization_state = authorization_state.clone();
+        move |template: &Template| {
+            let config = generate_mcp_config(template, &*authorization_state);
+            copy_config.set(config);
+            show_copy_dialog.set(true);
+        }
+    };
+
+    let on_close_copy_dialog = {
+        let show_copy_dialog = show_copy_dialog.clone();
+        Callback::from(move |_| {
+            show_copy_dialog.set(false);
+        })
+    };
+
     html! {
         <div class="container">
             { match &*load_state {
@@ -87,7 +197,16 @@ pub fn template_detail(props: &TemplateDetailProps) -> Html {
                         </Link<Route>>
                     </>
                 },
-                LoadState::Loaded(template) => html! {
+                LoadState::Loaded(template) => {
+                    let template_for_copy = template.as_ref().clone();
+                    let on_copy_click = {
+                        let on_copy_config = on_copy_config.clone();
+                        Callback::from(move |_| {
+                            on_copy_config(&template_for_copy);
+                        })
+                    };
+                    
+                    html! {
                     <>
                         <div class="header">
                             <div>
@@ -95,6 +214,9 @@ pub fn template_detail(props: &TemplateDetailProps) -> Html {
                                 <span class="namespace-badge">{ &template.namespace }</span>
                             </div>
                             <div class="button-group">
+                                <button class="btn-primary" onclick={on_copy_click} title="Copy MCP configuration">
+                                    { "📋 Copy Config" }
+                                </button>
                                 <Link<Route> to={Route::TemplateList}>
                                     <button class="btn-secondary">{ "Back to List" }</button>
                                 </Link<Route>>
@@ -175,6 +297,32 @@ pub fn template_detail(props: &TemplateDetailProps) -> Html {
                                 }
                             } else { html! {} }}
 
+                            { if !template.arg_envs.is_empty() {
+                                html! {
+                                    <section class="detail-section">
+                                        <h2>{ "Argument Environment Variables" }</h2>
+                                        <table class="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>{ "Key" }</th>
+                                                    <th>{ "Value" }</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                { for template.arg_envs.iter().map(|(key, value)| {
+                                                    html! {
+                                                        <tr key={key.clone()}>
+                                                            <td><code>{ key }</code></td>
+                                                            <td><code>{ value }</code></td>
+                                                        </tr>
+                                                    }
+                                                }) }
+                                            </tbody>
+                                        </table>
+                                    </section>
+                                }
+                            } else { html! {} }}
+
                             { if !template.secret_envs.is_empty() {
                                 html! {
                                     <section class="detail-section">
@@ -229,6 +377,12 @@ pub fn template_detail(props: &TemplateDetailProps) -> Html {
                             } else { html! {} }}
                         </div>
 
+                        <CopyConfigDialog 
+                            show={*show_copy_dialog}
+                            config_json={(*copy_config).clone()}
+                            on_close={on_close_copy_dialog.clone()}
+                        />
+
                         <ConfirmDialog
                             show={*show_delete_dialog}
                             title="Delete Template"
@@ -237,6 +391,7 @@ pub fn template_detail(props: &TemplateDetailProps) -> Html {
                             on_cancel={on_delete_cancel}
                         />
                     </>
+                    }
                 }
             }}
         </div>

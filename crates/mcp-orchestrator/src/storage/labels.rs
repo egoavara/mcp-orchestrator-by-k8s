@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use proto::mcp::orchestrator::v1::AuthorizationType;
-use serde::de::DeserializeOwned;
 
 use crate::{
     error::AppError,
@@ -74,6 +73,7 @@ pub fn is_managed_label(r#typeof: &str, labels: &BTreeMap<String, String>) -> bo
     managed_type == LABEL_MANAGED_BY_VALUE && r#typeof == target_typeof
 }
 
+#[allow(dead_code)]
 pub fn decode_label(
     data: Option<&BTreeMap<String, String>>,
     key: &str,
@@ -82,6 +82,7 @@ pub fn decode_label(
         .ok_or_else(|| AppError::InvalidLabelKey(key.to_string()))
 }
 
+#[allow(dead_code)]
 pub fn decode_label_map<R, M: FnOnce(&str) -> Result<R, AppError>>(
     data: Option<&BTreeMap<String, String>>,
     key: &str,

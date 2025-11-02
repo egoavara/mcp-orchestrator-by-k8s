@@ -1,19 +1,15 @@
-// For format details, see https://aka.ms/devcontainer.json. For config options, see the
-// README at: https://github.com/devcontainers/templates/tree/main/src/rust
 {
 	"name": "Rust",
 	"remoteUser": "vscode",
-	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/base:ubuntu",
 	"features": {
-		"ghcr.io/devcontainers-extra/features/redis-homebrew:1": {},
 		"ghcr.io/devcontainers/features/rust:1": {},
-		"ghcr.io/devcontainer-community/devcontainer-features/opencode.ai:1": {},
 		"ghcr.io/jsburckhardt/devcontainer-features/uv:1": {},
 		"ghcr.io/devcontainers/features/github-cli:1": {},
 		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
 		"ghcr.io/devcontainers-extra/features/protoc:1": {},
-		"ghcr.io/devcontainers/features/node:1": {}
+		"ghcr.io/devcontainers/features/node:1": {},
+		"ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {}
 	},
 	"runArgs": [
 		"--env-file",
@@ -22,9 +18,7 @@
 	"containerEnv": {
 		"EDITOR": "code --wait"
 	},
-	"postStartCommand": "redis-server --daemonize yes",
-	"postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.local /home/vscode/.config",
-	"updateContentCommand": "sudo chown -R vscode:vscode /home/vscode/.local /home/vscode/.config",
+	"postStartCommand": "npm i -g opencode-ai",
 	"customizations": {
 		"vscode": {
 			"extensions": [
@@ -68,13 +62,8 @@
 	},
 	"mounts": [
 		{
-			"source": "opencode-auth-${devcontainerId}",
-			"target": "/home/vscode/.local",
-			"type": "volume"
-		},
-		{
-			"source": "gh-config-${devcontainerId}",
-			"target": "/home/vscode/.config",
+			"source": "home-${devcontainerId}",
+			"target": "/home/vscode",
 			"type": "volume"
 		},
 		{
@@ -83,14 +72,4 @@
 			"type": "bind"
 		}
 	]
-	// Features to add to the dev container. More info: https://containers.dev/features.
-	// "features": {},
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// "forwardPorts": [],
-	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "rustc --version",
-	// Configure tool-specific properties.
-	// "customizations": {},
-	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
-	// "remoteUser": "root"
 }
