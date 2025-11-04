@@ -25,7 +25,7 @@ FROM --platform=$BUILDPLATFORM base AS planner
 
 COPY . .
 
-RUN cargo chef prepare --recipe-path recipe.json
+RUN cargo chef prepare --recipe-path recipe.json --bin mcp-orchestrator
 
 # ============================================================================
 # Stage 3: Builder - Cross-compilation setup and buildq
@@ -60,15 +60,17 @@ COPY --from=planner /app/recipe.json recipe.json
 # Cook dependencies (cached layer)
 # This layer is cached unless Cargo.toml changes, saving 5-10 minutes on rebuilds
 # Only build mcp-orchestrator binary dependencies (exclude wasm frontend)
-RUN set -ex; # cargo chef cook for the target platform \
+RUN echo "cargo chef cook for the target platform" && \
     export RUST_TARGET=$(cat /rust_target.txt) && \
     case "$RUST_TARGET" in \
+    "x86_64-unknown-linux-gnu") \
+    export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc ;; \
     "aarch64-unknown-linux-gnu") \
     export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc ;; \
     "armv7-unknown-linux-gnueabihf") \
     export CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc ;; \
     esac && \
-    cargo chef cook --release --target $RUST_TARGET --recipe-path recipe.json
+    cargo chef cook --release --target $RUST_TARGET --bin mcp-orchestrator --recipe-path recipe.json
 
 # Copy source code for build
 COPY . .
@@ -77,6 +79,8 @@ COPY . .
 RUN echo "Build both the wasm frontend and the main orchestrator binary" && \
     export RUST_TARGET=$(cat /rust_target.txt) && \
     case "$RUST_TARGET" in \
+    "x86_64-unknown-linux-gnu") \
+    export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc ;; \
     "aarch64-unknown-linux-gnu") \
     export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc ;; \
     "armv7-unknown-linux-gnueabihf") \
