@@ -74,7 +74,7 @@ RUN set -ex; # cargo chef cook for the target platform \
 COPY . .
 
 # Build application binary
-RUN set -ex; # Build both the wasm frontend and the main orchestrator binary \
+RUN echo "Build both the wasm frontend and the main orchestrator binary" && \
     export RUST_TARGET=$(cat /rust_target.txt) && \
     case "$RUST_TARGET" in \
     "aarch64-unknown-linux-gnu") \
