@@ -186,6 +186,11 @@ jobs:
           target: ${{ matrix.target }}
           rustflags: ${{ matrix.rustflags }}
 
+      - name: Set up Cargo tools
+        run: |
+          cargo install --locked cargo-binstall
+          cargo binstall --locked trunk
+
       - name: Install zig if needed
         if: matrix.zig_install
         uses: mlugg/setup-zig@v2
