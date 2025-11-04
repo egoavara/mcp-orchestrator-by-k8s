@@ -5,8 +5,6 @@ edition.workspace = true
 
 [package.metadata.cargo-machete]
 ignored = [
-    # 정적 파일 빌드와 build.rs 에서 의존성 주입을 위해 사용
-    "mcp-orchestrator-front",
     "humantime",
     "humantime-serde",
 ]
@@ -69,7 +67,6 @@ include_dir = { workspace = true }
 axum-qs = { path = "../axum-qs" }
 proto = { path = "../proto" }
 oidc-auth = { path = "../oidc-auth" }
-mcp-orchestrator-front = { path = "../mcp-orchestrator-front" }
 
 [dev-dependencies]
 rstest = "0.22"

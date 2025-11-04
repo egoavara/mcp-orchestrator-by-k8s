@@ -1,3 +1,4 @@
 {
-    "liveServer.settings.multiRootWorkspaceName": "realtime-svg"
+    "rust-analyzer.cargo.target": "wasm32-unknown-unknown",
+    "rust-analyzer.check.allTargets": false
 }

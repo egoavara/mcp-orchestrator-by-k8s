@@ -5,15 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MCP Orchestrator</title>
-    <link data-trunk rel="css" href="/statics/styles.css">
+    <link data-trunk rel="css" href="src/styles.css">
 </head>
 
 <body>
-    <script type="module">
-        import init from "/statics/mcp_orchestrator_front.js";
-
-        const wasmUrl = "/statics/mcp_orchestrator_front_bg.wasm";
-        init(wasmUrl).catch((err) => console.error("WASM 초기화 실패", err));
-    </script>
+    <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-bin="mcp-orchestrator-front"/>
 </body>
 </html>
