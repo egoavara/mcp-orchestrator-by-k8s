@@ -14,8 +14,8 @@ RUN apt-get update \
     && curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash \
     && rm -rf /var/lib/apt/lists/*
 
-# Install cargo-chef (cached layer)
-RUN cargo binstall --no-confirm --no-symlinks --locked cargo-chef
+# Install cargo-chef
+RUN cargo binstall --no-confirm --no-symlinks --locked cargo-chef trunk
 
 # ============================================================================
 # Stage 2: Planner - Dependency planning
@@ -51,14 +51,17 @@ RUN case "$TARGETPLATFORM" in \
 # Add Rust target for cross-compilation
 RUN export RUST_TARGET=$(cat /rust_target.txt) && \
     echo "Adding Rust target: $RUST_TARGET" && \
-    rustup target add $RUST_TARGET
+    rustup target add $RUST_TARGET && \
+    rustup target add wasm32-unknown-unknown
 
 # Copy dependency recipe from planner stage
 COPY --from=planner /app/recipe.json recipe.json
 
 # Cook dependencies (cached layer)
 # This layer is cached unless Cargo.toml changes, saving 5-10 minutes on rebuilds
-RUN export RUST_TARGET=$(cat /rust_target.txt) && \
+# Only build mcp-orchestrator binary dependencies (exclude wasm frontend)
+RUN set -ex; # cargo chef cook for the target platform \
+    export RUST_TARGET=$(cat /rust_target.txt) && \
     case "$RUST_TARGET" in \
     "aarch64-unknown-linux-gnu") \
     export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc ;; \
@@ -70,20 +73,20 @@ RUN export RUST_TARGET=$(cat /rust_target.txt) && \
 # Copy source code for build
 COPY . .
 
-# Add wasm32-unknown-unknown target for frontend build
-RUN rustup target add wasm32-unknown-unknown
-
 # Build application binary
-RUN export RUST_TARGET=$(cat /rust_target.txt) && \
+RUN set -ex; # Build both the wasm frontend and the main orchestrator binary \
+    export RUST_TARGET=$(cat /rust_target.txt) && \
     case "$RUST_TARGET" in \
     "aarch64-unknown-linux-gnu") \
     export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc ;; \
     "armv7-unknown-linux-gnueabihf") \
     export CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc ;; \
     esac && \
-    echo "Building mcp-orchestrator for target: $RUST_TARGET" && \
     cargo build --release --target $RUST_TARGET --bin mcp-orchestrator && \
-    mv target/$RUST_TARGET/release /app/build
+    mkdir -p /app/build && \
+    ls -la target/$RUST_TARGET/release/ && \
+    cp target/$RUST_TARGET/release/mcp-orchestrator /app/build/mcp-orchestrator && \
+    ls -la /app/build/
 
 # ============================================================================
 # Stage 4: Runtime - Minimal runtime image
@@ -102,7 +105,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the correct binary from builder stage
-# The builder stage already moved the cross-compiled binary to /app/mcp-orchestrator
+# The builder stage already moved the cross-compiled binary to /app/build/mcp-orchestrator
 # Docker buildx ensures the correct builder variant is used for each target platform
 COPY --from=builder --chmod=755 /app/build/mcp-orchestrator /usr/local/bin/mcp-orchestrator
 
