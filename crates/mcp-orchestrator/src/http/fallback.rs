@@ -10,7 +10,7 @@ pub async fn handler(req: Request<Body>) -> Response<Body> {
     match req.uri().path() {
         f if f.starts_with("/.well-known") => not_found(),
         f if f.starts_with("/oauth") => not_found(),
-        f if f.starts_with("/statics") => not_found(),
+        f if f.starts_with("/static") => not_found(),
         f if f.starts_with("/mcp") => not_found(),
         _ => index_file(),
     }
