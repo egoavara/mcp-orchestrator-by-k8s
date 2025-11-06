@@ -16,7 +16,7 @@ pub fn router(state: &AppState) -> Router<AppState> {
         .route("/health", get(health_handler))
         .nest("/mcp", mcp::router(state))
         .nest("/oauth", oauth::router(state))
-        .nest("/statics", statics::router(state))
+        .nest("/static", statics::router(state))
         .nest("/.well-known", well_known::router(state))
 }
 

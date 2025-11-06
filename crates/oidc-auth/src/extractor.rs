@@ -52,20 +52,16 @@ where
             return Ok(user.clone());
         }
 
-        let Some(manager) = parts.extensions.get::<Arc<AuthManager>>().cloned() else {
-            tracing::error!("AuthManager not configured in extensions");
-            let response = (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "manager not configured. Make sure AuthManager is added as layer to the stack.",
-            )
-                .into_response();
-            return Err(response);
-        };
-
         let Some(authorization) = parts.headers.get(http::header::AUTHORIZATION) else {
             tracing::debug!("no authorization header found");
             return Ok(OptionalAuthenticatedUser(None));
         };
+
+        let Some(manager) = parts.extensions.get::<Arc<AuthManager>>().cloned() else {
+            tracing::debug!("AuthManager not configured in extensions");
+            return Ok(OptionalAuthenticatedUser(None));
+        };
+
         let Ok(authorization) = authorization.to_str() else {
             tracing::warn!("invalid authorization header format: not valid UTF-8");
             let mut response = AuthError::InvalidAuthHeaderFormat.into_response();

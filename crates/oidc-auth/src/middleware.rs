@@ -40,13 +40,10 @@ where
 
         Box::pin(async move {
             let Some(manager) = req.extensions().get::<Arc<AuthManager>>().cloned() else {
-                tracing::error!("AuthManager not configured in extensions (middleware)");
-                let response = (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "manager not configured. Make sure AuthManager is added as layer to the stack.",
-                )
-                    .into_response();
-                return Ok(response);
+                req.extensions_mut()
+                    .insert(OptionalAuthenticatedUser(None));
+
+                return inner.call(req).await
             };
 
             let Some(authorization) = req.headers().get(http::header::AUTHORIZATION) else {
