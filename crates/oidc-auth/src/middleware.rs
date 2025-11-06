@@ -1,5 +1,4 @@
 use axum::extract::Request;
-use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use std::future::Future;
 use std::pin::Pin;

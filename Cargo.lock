@@ -304,7 +304,7 @@ dependencies = [
 
 [[package]]
 name = "axum-qs"
-version = "0.2.8"
+version = "0.2.9"
 dependencies = [
  "axum",
  "serde",
@@ -2378,7 +2378,7 @@ checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "mcp-orchestrator"
-version = "0.2.8"
+version = "0.2.9"
 dependencies = [
  "anyhow",
  "axum",
@@ -2427,7 +2427,7 @@ dependencies = [
 
 [[package]]
 name = "mcp-orchestrator-front"
-version = "0.2.8"
+version = "0.2.9"
 dependencies = [
  "gloo-net 0.4.0",
  "js-sys",
@@ -2591,7 +2591,7 @@ dependencies = [
 
 [[package]]
 name = "oidc-auth"
-version = "0.2.8"
+version = "0.2.9"
 dependencies = [
  "argon2",
  "axum",
@@ -3162,7 +3162,7 @@ dependencies = [
 
 [[package]]
 name = "proto"
-version = "0.2.8"
+version = "0.2.9"
 dependencies = [
  "prost",
  "prost-wkt",
@@ -3176,7 +3176,7 @@ dependencies = [
 
 [[package]]
 name = "proto-web"
-version = "0.2.8"
+version = "0.2.9"
 dependencies = [
  "prost",
  "prost-build",

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use k8s_openapi::api::core::v1::Pod;
 use kube::{Api, ResourceExt, api::DeleteParams};
 
@@ -23,6 +23,16 @@ pub async fn check_orphan_session(state: &AppState) {
     let mut list_params = kube::api::ListParams::default()
         .labels(&label_query)
         .limit(32);
+    let session_max_idle_time = match Duration::from_std(state.config.mcp.session_max_idle_time) {
+        Ok(session_max_idle_time) => session_max_idle_time,
+        Err(_) => {
+            tracing::error!(
+                "Invalid session max idle time configuration: {:?}, using default 30 minutes",
+                state.config.mcp.session_max_idle_time
+            );
+            Duration::minutes(30)
+        },
+    };
     let mut orphans = HashMap::<String, Vec<String>>::new();
     loop {
         let pods = match api.list(&list_params).await {
@@ -34,7 +44,7 @@ pub async fn check_orphan_session(state: &AppState) {
         };
 
         for p in &pods.items {
-            if is_pod_orphan(&now, p) {
+            if is_pod_orphan(&session_max_idle_time, &now, p) {
                 tracing::info!("Found orphan MCP server pod: {}", p.name_any());
                 let namespace = p.namespace().unwrap_or_else(|| "default".to_string());
                 let name = p.name_any();
@@ -73,7 +83,7 @@ pub async fn check_orphan_session(state: &AppState) {
     }
 }
 
-fn is_pod_orphan(now: &DateTime<Utc>, pod: &Pod) -> bool {
+fn is_pod_orphan(session_max_idle_time: &Duration, now: &DateTime<Utc>, pod: &Pod) -> bool {
     // Placeholder logic for determining if a pod is orphaned
     // In a real implementation, this would check for associated sessions or resources
     if let Some(creation_timestamp) = &pod.metadata.creation_timestamp {
@@ -105,7 +115,7 @@ fn is_pod_orphan(now: &DateTime<Utc>, pod: &Pod) -> bool {
     };
     let last_access = last_access.with_timezone(&Utc);
     let duration_since_access = now.signed_duration_since(last_access);
-    if duration_since_access.num_seconds() > 15 {
+    if duration_since_access > *session_max_idle_time {
         return true;
     }
     false
