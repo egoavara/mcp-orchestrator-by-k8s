@@ -163,6 +163,9 @@ pub struct PodConfig {
 pub struct McpConfig {
     #[serde(with = "humantime_serde", default = "default_keep_alive")]
     pub keep_alive: Option<Duration>,
+
+    #[serde(with = "humantime_serde", default = "default_session_max_idle_time")]
+    pub session_max_idle_time: Duration,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,6 +197,10 @@ pub struct AppConfig {
 
 fn default_keep_alive() -> Option<Duration> {
     Some(std::time::Duration::from_secs(30))
+}
+
+fn default_session_max_idle_time() -> Duration {
+    std::time::Duration::from_mins(30)
 }
 
 fn default_url() -> String {
@@ -249,6 +256,7 @@ impl Default for McpConfig {
     fn default() -> Self {
         Self {
             keep_alive: default_keep_alive(),
+            session_max_idle_time: default_session_max_idle_time(),
         }
     }
 }
